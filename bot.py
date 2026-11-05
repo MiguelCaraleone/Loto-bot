@@ -18,10 +18,10 @@ DB_PATH = "loto_game.db"
 KARTA_RAQAMI = "9860 3501 4780 2176"
 KARTA_EGASI = "Mamatkulov Izzatillo"
 
-# Joker rasmining to'g'ridan-to'g'ri havolasi
+# Joker rasmi
 JOKER_IMG_URL = "https://i.ibb.co/RkRvBsHP/file-00000000865082469ff369a93b107407.png"
 
-# --- BAZA VA AVTOMATIK SAVOLLAR ---
+# --- BAZA VA SAVOLLAR ---
 async def init_db():
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("""CREATE TABLE IF NOT EXISTS questions 
@@ -37,7 +37,6 @@ async def init_db():
 
         if count < 1000:
             print("⏳ 1000 ta savol bazaga yozilmoqda...")
-            
             savollar = [
                 ("O'zbekistonning poytaxti qaysi shahar?", "Toshkent", "Samarqand", "Buxoro", "Namangan", 1),
                 ("Dunyodagi eng baland tog' qaysi?", "Everest", "Elbrus", "Kilimanjaro", "Montblan", 1),
@@ -90,17 +89,14 @@ async def init_db():
             while current_count < 1000:
                 mavzu = random.choice(mavzular)
                 num = random.randint(1, 1000)
-                
                 savol_text = f"{mavzu} bo'yicha {num}-savol qaysi?"
                 togri_javob = f"To'g'ri javob {num}"
                 opts = [togri_javob, f"Xato variant 1", f"Xato variant 2", f"Xato variant 3"]
                 random.shuffle(opts)
                 correct = opts.index(togri_javob) + 1
-                
                 await db.execute("INSERT INTO questions (question, opt1, opt2, opt3, opt4, correct_opt) VALUES (?,?,?,?,?,?)",
                                  (savol_text, opts[0], opts[1], opts[2], opts[3], correct))
                 current_count += 1
-                
             await db.commit()
             print("✅ 1000 ta savol bazaga muvaffaqiyatli yozildi!")
 
@@ -147,11 +143,9 @@ async def cmd_start(message: Message):
         f"🎁 Omadingizni sinab ko'ring va yutuqlarni qo'lga kiriting!\n\n"
         f"👇 O'yin turini tanlang:"
     )
-    
     try:
         await message.answer_photo(photo=JOKER_IMG_URL, caption=text, reply_markup=main_menu(), parse_mode="HTML")
-    except Exception as e:
-        print(f"Rasm yuklashda xato: {e}")
+    except:
         await message.answer(text, reply_markup=main_menu(), parse_mode="HTML")
 
 @router.callback_query(F.data == "back_main")
@@ -251,10 +245,8 @@ async def approve_payment(callback: CallbackQuery, bot: Bot):
     _, mode, user_id = callback.data.split("_")
     user_id = int(user_id)
     
-    try: 
-        await callback.message.edit_caption(caption="✅ To'lov tasdiqlandi! O'yinchi navbatga qo'shildi.")
-    except: 
-        pass
+    try: await callback.message.edit_caption(caption="✅ To'lov tasdiqlandi! O'yinchi navbatga qo'shildi.")
+    except: pass
     await callback.answer("Tasdiqlandi!")
 
     async with aiosqlite.connect(DB_PATH) as db:
@@ -264,20 +256,16 @@ async def approve_payment(callback: CallbackQuery, bot: Bot):
         cursor = await db.execute("SELECT user_id FROM queues WHERE mode = ? AND status = 'waiting' LIMIT 4", (mode,))
         waiting_users = [row[0] for row in await cursor.fetchall()]
 
-    try: 
-        await bot.send_message(user_id, f"✅ To'lov tasdiqlandi! ({'2 kishilik' if mode == 'pay_2' else '4 kishilik'}). Navbatga qo'shildingiz, raqiblaringizni kuting...")
-    except: 
-        pass
+    try: await bot.send_message(user_id, f"✅ To'lov tasdiqlandi! ({'2 kishilik' if mode == 'pay_2' else '4 kishilik'}). Navbatga qo'shildingiz, raqiblaringizni kuting...")
+    except: pass
 
     required_count = 2 if mode == "pay_2" else 4
     if len(waiting_users) >= required_count:
         players = waiting_users[:required_count]
-        
         async with aiosqlite.connect(DB_PATH) as db:
             for p in players:
                 await db.execute("UPDATE queues SET status = 'playing' WHERE user_id = ?", (p,))
             await db.commit()
-            
         prize = 20000 if mode == "pay_2" else 32000
         await start_duel(bot, players, "2 kishilik" if mode == "pay_2" else "4 kishilik", prize)
 
@@ -308,10 +296,8 @@ async def start_duel(bot: Bot, players: list, duel_type: str, prize: int):
     text = f"⚔️ <b>BELLASHUV BOSHLANDI!</b> ⚔️\n({duel_type} o'yini)\n\nKim birinchi bo'lib to'g'ri javobni bosadi, o'sha <b>{prize:,} so'm</b> yutadi!\n\n❓ <b>SAVOL:</b> {q['question']}"
     
     for player in players:
-        try: 
-            await bot.send_message(player, text, reply_markup=builder.as_markup(), parse_mode="HTML")
-        except: 
-            pass
+        try: await bot.send_message(player, text, reply_markup=builder.as_markup(), parse_mode="HTML")
+        except: pass
 
 @router.callback_query(GameCB.filter(F.action == "duel_answer"))
 async def duel_answer(callback: CallbackQuery, callback_data: GameCB, bot: Bot):
@@ -335,13 +321,10 @@ async def duel_answer(callback: CallbackQuery, callback_data: GameCB, bot: Bot):
         try:
             await bot.send_message(user_id, f"🎉 <b>TABRIKLAYMIZ, SIZ YUTDINGIZ!</b> 🎉\n\nSiz raqiblaringizni tezroq yutdingiz va <b>{prize:,} so'mni</b> qo'lga kiritdingiz!\n\nAdmin pulni o'tkazishi uchun karta raqamingizni yuboring:")
             await bot.send_message(ADMIN_ID, f"⚔️ <b>Bellashuv yakunlandi!</b>\n🏆 G'olib ID: <code>{user_id}</code>\n💰 Yutuq: {prize:,} so'm\n\nG'olibdan karta raqamini so'rang!")
-        except: 
-            pass
+        except: pass
         
-        try: 
-            await callback.message.edit_text("✅ Siz to'g'ri javob berdingiz va yutdingiz! Admin bilan bog'lanasiz.", reply_markup=main_menu())
-        except: 
-            pass
+        try: await callback.message.edit_text("✅ Siz to'g'ri javob berdingiz va yutdingiz! Admin bilan bog'lanasiz.", reply_markup=main_menu())
+        except: pass
     else:
         aqlli_gap = (
             "🚨🚨🚨 <b>DIQQAT!</b> 🚨🚨🚨\n\n"
@@ -353,33 +336,24 @@ async def duel_answer(callback: CallbackQuery, callback_data: GameCB, bot: Bot):
             "Raqibingiz sizdan ancha tezroq va aqlliroq bo'lib chiqdi.\n"
             "Miyangizni ishlatib ko'ring! 🧠🤡"
         )
-        try: 
-            await callback.message.edit_text(aqlli_gap, reply_markup=main_menu(), parse_mode="HTML")
-        except: 
-            pass
+        try: await callback.message.edit_text(aqlli_gap, reply_markup=main_menu(), parse_mode="HTML")
+        except: pass
         
         async with aiosqlite.connect(DB_PATH) as db:
             cursor = await db.execute("SELECT user_id FROM queues WHERE status = 'playing'")
             playing_users = [r[0] for r in await cursor.fetchall()]
             for p in playing_users:
                 if p != user_id:
-                    try: 
-                        await bot.send_message(p, aqlli_gap, parse_mode="HTML")
-                    except: 
-                        pass
+                    try: await bot.send_message(p, aqlli_gap, parse_mode="HTML")
+                    except: pass
     await callback.answer()
 
 # --- ISHGA TUSHIRISH ---
 async def main():
     await init_db()
     bot = Bot(token=TOKEN)
-    
-    # Telegram'dagi eski tiqilib qolgan xabarlarni tozalash
-    try:
-        await bot.delete_webhook(drop_pending_updates=True)
-    except:
-        pass
-        
+    try: await bot.delete_webhook(drop_pending_updates=True)
+    except: pass
     dp = Dispatcher()
     dp.include_router(router)
     print("🤖 Tizim ishga tushdi. Bot to'liq tayyor!")
