@@ -12,7 +12,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.filters.callback_data import CallbackData
 
 # --- SOZLAMALAR ---
-TOKEN = "9237388648:AAHNnfVKjUc5wWH3-UnKodCPJ31UMbI092M" 
+TOKEN = "9237388648:AAGUuyXN-79BJqQzjHR9O-ngoRqGS5a6bOA" 
 ADMIN_ID = 1302845749
 DB_PATH = "loto_game.db"
 KARTA_RAQAMI = "9860 3501 4780 2176"
