@@ -1,6 +1,8 @@
 import asyncio
 import logging
 import aiosqlite
+import os
+os.system("pip install aiogram aiosqlite")
 import random
 from aiogram import Bot, Dispatcher, F, Router
 from aiogram.types import Message, CallbackQuery
