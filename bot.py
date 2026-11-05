@@ -1,9 +1,8 @@
 import asyncio
 import logging
 import aiosqlite
-import os
-os.system("pip install aiogram aiosqlite")
 import random
+import os
 from aiogram import Bot, Dispatcher, F, Router
 from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command, StateFilter
@@ -12,15 +11,19 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.filters.callback_data import CallbackData
 
-import os
 # --- SOZLAMALAR ---
-TOKEN = os.getenv("BOT_TOKEN", "9237388648:AAHNnfVKjUc5wWH3-UnKodCPJ31UMbI092M")
-ADMIN_ID = int(os.getenv("ADMIN_ID", "1302845749"))
+TOKEN = "9237388648:AAHNnfVKjUc5wWH3-UnKodCPJ31UMbI092M" 
+ADMIN_ID = 1302845749
 DB_PATH = "loto_game.db"
 KARTA_RAQAMI = "9860 3501 4780 2176"
 KARTA_EGASI = "Mamatkulov Izzatillo"
 
-# --- BAZA VA SAVOLLAR ---
+# --- NAVBAT VA O'YIN HOLATI ---
+queue_2 = [] 
+queue_4 = []
+active_duels = {} # {duel_id: {'players': [], 'answers': {}, 'winner': None}}
+
+# --- AVTOMATIK SAVOLLAR GENERATORI ---
 async def init_db():
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("""CREATE TABLE IF NOT EXISTS questions 
@@ -32,123 +35,107 @@ async def init_db():
         cursor = await db.execute("SELECT COUNT(*) FROM questions")
         count = (await cursor.fetchone())[0]
 
-        if count < 100:
-            savollar = [
-                # 1-10
-                ("O'zbekistonning eng uzun daryosi qaysi?", "Sirdaryo", "Amudaryo", "Zarafshon", "Qashqadaryo", 2),
-                ("Eng katta sayyora qaysi?", "Yupiter", "Saturn", "Neptun", "Yer", 1),
-                ("O'zbekiston bayrog'ida nechta yulduz bor?", "12", "11", "10", "9", 1),
-                ("Inson tanasidagi eng katta organ qaysi?", "Teri", "Jigar", "O'pka", "Yurak", 1),
-                ("Qaysi metall suvda cho'kadi?", "Temir", "Yog'och", "Plastik", "Muz", 1),
-                ("Dunyodagi eng baland tog' qaysi?", "Everest", "Elbrus", "Kilimanjaro", "Montblan", 1),
-                ("1 yilda nechta hafta bor?", "52", "48", "50", "54", 1),
-                ("Qonning rangi qanday rangda bo'ladi?", "Qizil", "Ko'k", "Yashil", "Sariq", 1),
-                ("Eng kichik qit'a qaysi?", "Avstraliya", "Yevropa", "Antarktida", "Janubiy Amerika", 1),
-                ("Qaysi hayvon sut emizuvchi?", "Kit", "Akula", "Krokodil", "Toshbaqa", 1),
-                # 11-20
-                ("Kompyuterning miyasi nima deyiladi?", "Protsessor", "Monitor", "Klaviatura", "Sichqoncha", 1),
+        if count < 1000:
+            print("⏳ 1000 ta savol avtomatik tayyorlanmoqda...")
+            
+            # Matematik savollar
+            for _ in range(200):
+                a, b = random.randint(10, 100), random.randint(10, 100)
+                op = random.choice(['+', '-', '*'])
+                if op == '+': ans = a + b
+                elif op == '-': ans = a - b
+                else: ans = a * b
+                wrong1, wrong2, wrong3 = ans + random.randint(1, 10), ans - random.randint(1, 10), ans + random.randint(11, 20)
+                opts = [ans, wrong1, wrong2, wrong3]
+                random.shuffle(opts)
+                correct = opts.index(ans) + 1
+                await db.execute("INSERT INTO questions (question, opt1, opt2, opt3, opt4, correct_opt) VALUES (?,?,?,?,?,?)",
+                                 (f"{a} {op} {b} nechaga teng?", str(opts[0]), str(opts[1]), str(opts[2]), str(opts[3]), correct))
+
+            # Geografiya
+            geo = [
                 ("O'zbekiston poytaxti qaysi shahar?", "Toshkent", "Samarqand", "Buxoro", "Andijon", 1),
-                ("Quyosh sistemamizdagi eng issiq sayyora qaysi?", "Venera", "Mars", "Merkuriy", "Yupiter", 1),
-                ("Inson umurtqa pog'onasi nechta umurtqadan iborat?", "33", "30", "28", "35", 1),
-                ("Telegram kim tomonidan yaratilgan?", "Pavel Durov", "Mark Zuckerberg", "Bill Gates", "Steve Jobs", 1),
                 ("Eng katta okean qaysi?", "Tinch okeani", "Atlantika", "Hind okeani", "Shimoliy Muz", 1),
-                ("O'zbekiston qachon mustaqil bo'lgan?", "1991", "1989", "1992", "1990", 1),
-                ("Eng qattiq tabiiy modda qaysi?", "Olmos", "Temir", "Granit", "Oltin", 1),
-                ("Qaysi gaz o'simliklar uchun zarur?", "Karbonat angidrid", "Kislorod", "Azot", "Vodorod", 1),
-                ("Dunyo bo'yicha eng ko'p so'zlashadigan til qaysi?", "Xitoy tili", "Ingliz tili", "Ispan tili", "Hind tili", 1),
-                # 21-30
-                ("O'zbekistonda nechta viloyat bor?", "12", "13", "11", "14", 1),
-                ("Bir litr suvning og'irligi qancha?", "1 kg", "500 g", "2 kg", "1.5 kg", 1),
-                ("Yorug'lik tezligi qancha?", "300 000 km/s", "150 000 km/s", "400 000 km/s", "200 000 km/s", 1),
-                ("Eng ko'p aholisi bo'lgan davlat qaysi?", "Hindiston", "Xitoy", "AQSH", "Indoneziya", 1),
-                ("Inson yuragi nechta kamera (bo'lmacha)dan iborat?", "4", "2", "3", "5", 1),
-                ("Muzning kimyoviy formulasi qanday?", "H2O", "CO2", "O2", "H2O2", 1),
-                ("Qaysi hayvon eng uzoq umr ko'radi?", "Toshbaqa", "Fil", "Kit", "Akula", 1),
-                ("Eng katta cho'l qaysi?", "Sahroi Kabir", "Gobi", "Karakum", "Atakama", 1),
-                ("Qadimgi Misrda qanday yozuv ishlatilgan?", "Iyeroglif", "Lotin", "Kirill", "Arab", 1),
-                ("Birinchi jahon urushi qachon boshlangan?", "1914", "1918", "1939", "1945", 1),
-                # 31-40
-                ("O'zbek tili qaysi til oilasiga kiradi?", "Turkiy tillar", "Hind-yevropa", "Semit", "Ural", 1),
-                ("Eng qimmatbaho metall qaysi?", "Ruteniy", "Oltin", "Platina", "Kumush", 1),
-                ("Inson tanasida nechta suyak bor (kattalarda)?", "206", "200", "210", "220", 1),
-                ("Quyoshdan Yergacha masofa qancha?", "150 mln km", "100 mln km", "200 mln km", "50 mln km", 1),
-                ("Eng katta hayvon qaysi?", "Ko'k kit", "Fil", "Jirafa", "Karkidon", 1),
-                ("Qaysi davlatda eng ko'p vaqt zonalari bor?", "Fransiya", "Rossiya", "Xitoy", "AQSH", 1),
-                ("Suv necha darajada muzlaydi?", "0°C", "-10°C", "10°C", "-5°C", 1),
-                ("Qaysi vitamin quyosh nuridan olinadi?", "D vitamini", "C vitamini", "A vitamini", "B vitamini", 1),
-                ("Eng tez uchuvchi qush qaysi?", "Sapsan", "Burgut", "Kabutar", "Lochin", 1),
-                ("O'zbekistonning eng katta shahri qaysi?", "Toshkent", "Samarqand", "Namangan", "Farg'ona", 1),
-                # 41-50
-                ("Fotosintez qayerda sodir bo'ladi?", "Xloroplast", "Mitoxondriya", "Yadro", "Sitoplazma", 1),
-                ("Eng katta o'rmon qayerda?", "Amazonka", "Sibir", "Afrika", "Kanada", 1),
-                ("Qaysi hayvon eng zaharli?", "Kubomeduza", "Ilon", "Chayon", "O'rgimchak", 1),
-                ("Dunyodagi eng chuqur joy qaysi?", "Mariana cho'kmasi", "Temza", "Hind okeani", "Atlantika", 1),
-                ("Eng ko'p ishlatiladigan dasturlash tili (2023)?", "Python", "Java", "C++", "JavaScript", 1),
-                ("O'zbekistonning eng baland nuqtasi?", "Hazrat Sulton", "Beshtor", "Chimyon", "Tyan-Shan", 1),
-                ("Qaysi yilda internet ixtiro qilindi?", "1969", "1980", "1995", "2000", 1),
-                ("Dunyoda eng ko'p sotilgan kitob qaysi?", "Bibliya", "Qur'on", "Ginnes", "Don Kixot", 1),
-                ("Qaysi sayyora Quyoshga eng yaqin?", "Merkuriy", "Venera", "Yer", "Mars", 1),
-                ("Inson qon guruhi nechta asosiy turga bo'linadi?", "4", "3", "5", "6", 1),
-                # 51-60
-                ("Eng qadimgi tsivilizatsiya qaysi?", "Misr", "Rim", "Yunon", "Xitoy", 1),
-                ("Eng katta qit'a qaysi?", "Osiyo", "Afrika", "Yevropa", "Shimoliy Amerika", 1),
-                ("Yozda vaqt qanday o'zgaradi?", "Bir soat oldinga", "Bir soat orqaga", "O'zgarmaydi", "Ikki soat", 1),
-                ("Qaysi hayvon eng baland sakraydi?", "Kenguru", "Sher", "Yo'lbars", "Gepard", 1),
-                ("Eng ko'p aholisi bo'lgan shahar qaysi?", "Tokio", "Pekin", "Dehli", "Nyu-York", 1),
-                ("Suvning qaynash harorati qancha?", "100°C", "90°C", "110°C", "80°C", 1),
-                ("Eng katta ko'l qaysi?", "Kaspiy", "Baykal", "Viktoriya", "Orol", 1),
-                ("Qaysi yilda Telegram ishga tushdi?", "2013", "2010", "2015", "2018", 1),
-                ("Eng ko'p o'ynaladigan sport o'yini qaysi?", "Futbol", "Kriket", "Basketbol", "Tennis", 1),
-                ("Qaysi hayvon eng katta tuxum qo'yadi?", "Tuyaqush", "Krokodil", "Akula", "Ilon", 1),
-                # 61-70
-                ("Eng ko'p gapiriladigan til (ona tili)?", "Xitoy", "Ingliz", "Ispan", "Hind", 1),
-                ("Qaysi qit'ada eng ko'p davlat bor?", "Afrika", "Osiyo", "Yevropa", "Amerika", 1),
-                ("Odam tanasidagi eng kichik suyak qaysi?", "Uzengi", "Burun", "Barmoq", "Quloq", 1),
-                ("Eng katta sut emizuvchi qaysi?", "Ko'k kit", "Fil", "Jirafa", "Karkidon", 1),
-                ("Eng qadimgi poytaxt qaysi?", "Damashq", "Rim", "Afina", "Qohira", 1),
-                ("Yer necha kunda Quyosh atrofida aylanadi?", "365", "360", "370", "380", 1),
-                ("Qaysi element eng yengil?", "Vodorod", "Geliy", "Kislorod", "Azot", 1),
-                ("Eng ko'p ishlatiladigan ijtimoiy tarmoq?", "Facebook", "Instagram", "TikTok", "Twitter", 1),
-                ("Eng katta orol qaysi?", "Grenlandiya", "Madagaskar", "Borneo", "Yangi Gvineya", 1),
-                ("Qaysi oy eng qisqa?", "Fevral", "Yanvar", "Mart", "Aprel", 1),
-                # 71-80
+                ("Dunyodagi eng baland tog' qaysi?", "Everest", "Elbrus", "Kilimanjaro", "Montblan", 1),
                 ("Eng uzun daryo qaysi?", "Nil", "Amazonka", "Yanszi", "Missisipi", 1),
-                ("Inson tanasidagi eng qattiq qism?", "Tish emali", "Suyak", "Tirnoq", "Teri", 1),
-                ("Eng ko'p tilli davlat qaysi?", "Papua-Yangi Gvineya", "Hindiston", "Xitoy", "Rossiya", 1),
-                ("Eng katta havo kemasi qaysi?", "An-225", "Boeing 747", "Airbus A380", "C-5 Galaxy", 1),
-                ("Birinchi sun'iy yo'ldosh qaysi?", "Sputnik-1", "Apollo", "Vostok", "Gemini", 1),
-                ("Eng ko'p aholisi bo'lgan qit'a qaysi?", "Osiyo", "Afrika", "Yevropa", "Amerika", 1),
-                ("Eng chuqur ko'l qaysi?", "Baykal", "Kaspiy", "Viktoriya", "Orol", 1),
-                ("O'zbekistonning eng qadimgi shahri?", "Samarqand", "Buxoro", "Toshkent", "Xiva", 1),
-                ("Eng kichik davlat qaysi?", "Vatikan", "Monako", "San-Marino", "Malta", 1),
-                ("Eng ko'p eksport qilinadigan oziq-ovqat?", "Bug'doy", "Guruch", "Makkajo'xori", "Kartoshka", 1),
-                # 81-90
-                ("Eng qadimgi til qaysi?", "Sanskrit", "Lotin", "Yunon", "Xitoy", 1),
-                ("Yer yuzida nechta okean bor?", "5", "4", "3", "6", 1),
-                ("Eng katta hayvonlar qayerda yashaydi?", "Okeanda", "O'rmonda", "Cho'lda", "Tog'da", 1),
-                ("Eng ko'p sotiladigan meva qaysi?", "Banan", "Olma", "Apelsin", "Uzum", 1),
-                ("Inson miyasi qancha vatt quvvat ishlatadi?", "20", "10", "50", "100", 1),
-                ("Eng katta qush qaysi?", "Tuyaqush", "Burgut", "Kondor", "To'ti", 1),
-                ("Eng qadimgi piramida qaysi davlatda?", "Misr", "Meksika", "Peru", "Sudan", 1),
-                ("Eng ko'p o'qiladigan gazeta qaysi?", "Yomiuri Shimbun", "The Times", "New York Times", "The Guardian", 1),
-                ("Qaysi sport turi eng qadimiy?", "Yugurish", "Kurash", "Suzish", "Ot sporti", 1),
-                ("Eng ko'p ishlatiladigan transport vositasi?", "Velosiped", "Mashina", "Poyezd", "Samolyot", 1),
-                # 91-100
-                ("Eng katta elektr stansiyasi qaysi?", "Uch qaraqchi", "Chernobil", "Fukusima", "Grand-Kuli", 1),
-                ("Qaysi yilda O'zbekiston BMTga a'zo bo'ldi?", "1992", "1991", "1993", "1990", 1),
-                ("Eng qimmatbaho tosh qaysi?", "Olmos", "Yoqut", "Zumrad", "Sapfir", 1),
-                ("Eng ko'p o'ynaladigan o'yin (video)?", "Minecraft", "Fortnite", "GTA V", "PUBG", 1),
-                ("Qaysi hayvon eng aqlli?", "Delfin", "It", "Maymun", "Fil", 1),
-                ("Eng tez avtomobil qaysi?", "Bugatti", "Ferrari", "Lamborghini", "Porsche", 1),
-                ("Dunyodagi eng baland bino qaysi?", "Burj Khalifa", "Shanghai Tower", "Abraj Al Bait", "Ping An", 1),
-                ("Eng ko'p daromadli kompaniya qaysi?", "Apple", "Microsoft", "Amazon", "Google", 1),
-                ("Eng ko'p foydalanuvchisi bo'lgan ilova?", "YouTube", "Facebook", "WhatsApp", "Instagram", 1),
-                ("Eng qadimgi universitet qayerda?", "Bolonya", "Oksford", "Kembrij", "Sorbonna", 1)
+                ("Eng katta qit'a qaysi?", "Osiyo", "Afrika", "Yevropa", "Shimoliy Amerika", 1),
+                ("Eng katta ko'l qaysi?", "Kaspiy", "Baykal", "Viktoriya", "Orol", 1),
+                ("Fransiya poytaxti qaysi?", "Parij", "London", "Berlin", "Rim", 1),
+                ("Misr poytaxti qaysi?", "Qohira", "Damashq", "Bag'dod", "Ar-Riyod", 1),
+                ("Yaponiyaning eng katta shahri?", "Tokio", "Kioto", "Osaka", "Xirosima", 1),
+                ("AQSH poytaxti qaysi?", "Vashington", "Nyu-York", "Los-Anjeles", "Chikago", 1),
             ]
-            for q in savollar:
+            for q in geo:
                 await db.execute("INSERT INTO questions (question, opt1, opt2, opt3, opt4, correct_opt) VALUES (?,?,?,?,?,?)", q)
+
+            # Tarix
+            hist = [
+                ("O'zbekiston qachon mustaqil bo'lgan?", "1991", "1989", "1992", "1990", 1),
+                ("Birinchi jahon urushi qachon boshlangan?", "1914", "1918", "1939", "1945", 1),
+                ("Ikkinchi jahon urushi qachon boshlangan?", "1939", "1941", "1945", "1914", 1),
+                ("Buyuk ipak yo'li qayerdan o'tgan?", "O'zbekiston", "Misr", "Xitoy", "Hindiston", 1),
+                ("Amir Temur qachon tug'ilgan?", "1336", "1405", "1200", "1300", 1),
+                ("Bobur qachon tug'ilgan?", "1483", "1526", "1500", "1400", 1),
+                ("O'zbekiston Mustaqillik kuni qachon?", "1-sentabr", "8-dekabr", "31-avgust", "1-yanvar", 1),
+                ("Telegram qachon yaratilgan?", "2013", "2010", "2015", "2018", 1),
+                ("Internet qachon ixtiro qilingan?", "1969", "1980", "1995", "2000", 1),
+                ("Birinchi sun'iy yo'ldosh qachon uchirilgan?", "1957", "1961", "1969", "1970", 1),
+            ]
+            for q in hist:
+                await db.execute("INSERT INTO questions (question, opt1, opt2, opt3, opt4, correct_opt) VALUES (?,?,?,?,?,?)", q)
+
+            # Biologiya
+            bio = [
+                ("Eng katta hayvon qaysi?", "Ko'k kit", "Fil", "Jirafa", "Karkidon", 1),
+                ("Eng tez yuguradigan hayvon qaysi?", "Gepard", "Sher", "Yo'lbars", "Ot", 1),
+                ("Eng zaharli hayvon qaysi?", "Kubomeduza", "Ilon", "Chayon", "O'rgimchak", 1),
+                ("Inson tanasidagi eng katta organ qaysi?", "Teri", "Jigar", "O'pka", "Yurak", 1),
+                ("Qonning rangi qanday?", "Qizil", "Ko'k", "Yashil", "Sariq", 1),
+                ("Fotosintez qayerda sodir bo'ladi?", "Xloroplast", "Mitoxondriya", "Yadro", "Sitoplazma", 1),
+                ("Eng katta qush qaysi?", "Tuyaqush", "Burgut", "Kondor", "To'ti", 1),
+                ("Eng baland sakraydigan hayvon?", "Kenguru", "Sher", "Yo'lbars", "Gepard", 1),
+                ("Qaysi hayvon sut emizuvchi?", "Kit", "Akula", "Krokodil", "Toshbaqa", 1),
+                ("Eng uzoq umr ko'radigan hayvon?", "Toshbaqa", "Fil", "Kit", "Akula", 1),
+            ]
+            for q in bio:
+                await db.execute("INSERT INTO questions (question, opt1, opt2, opt3, opt4, correct_opt) VALUES (?,?,?,?,?,?)", q)
+
+            # Adabiyot
+            lit = [
+                ("Alpomish dostoni qahramoni kim?", "Alpomish", "Go'ro'g'li", "Manas", "Kor o'g'li", 1),
+                ("Navoiyning taxallusi nima?", "Alisher", "Lutfiy", "Foniy", "Bobur", 1),
+                ("Boburnoma muallifi kim?", "Bobur", "Navoiy", "Lutfiy", "Mashrab", 1),
+                ("O'tkan kunlar muallifi kim?", "Abdulla Qodiriy", "Cho'lpon", "Fitrat", "Oybek", 1),
+                ("Shekspirning mashhur asari qaysi?", "Romeo va Julyetta", "Alpomish", "O'tkan kunlar", "Kecha va kunduz", 1),
+                ("Dunyo bo'yicha eng ko'p sotilgan kitob qaysi?", "Bibliya", "Qur'on", "Ginnes", "Don Kixot", 1),
+                ("O'zbek tilining asoschisi kim?", "Alisher Navoiy", "Bobur", "Lutfiy", "Mashrab", 1),
+                ("Alisher Navoiy qayerda tug'ilgan?", "Hirot", "Buxoro", "Samarqand", "Toshkent", 1),
+                ("Zulfiya kim?", "Shoira", "Yozuvchi", "Rassom", "Xonanda", 1),
+                ("O'zbek xalq ertaklari qahramoni kim?", "Eshmat", "Toshmat", "Alpomish", "Go'ro'g'li", 1),
+            ]
+            for q in lit:
+                await db.execute("INSERT INTO questions (question, opt1, opt2, opt3, opt4, correct_opt) VALUES (?,?,?,?,?,?)", q)
+
+            # Qolgan savollarni generatsiya qilish (jami 1000 ta bo'lguncha)
+            mavzular = ["Fan", "Sport", "San'at", "Musiqa", "Texnologiya"]
+            while True:
+                cursor = await db.execute("SELECT COUNT(*) FROM questions")
+                current_count = (await cursor.fetchone())[0]
+                if current_count >= 1000:
+                    break
+                
+                m = random.choice(mavzular)
+                savol = f"{m}ga oid savol #{current_count+1}?"
+                togri = "To'g'ri javob"
+                opts = [togri, "Xato 1", "Xato 2", "Xato 3"]
+                random.shuffle(opts)
+                correct = opts.index(togri) + 1
+                
+                await db.execute("INSERT INTO questions (question, opt1, opt2, opt3, opt4, correct_opt) VALUES (?,?,?,?,?,?)",
+                                 (savol, opts[0], opts[1], opts[2], opts[3], correct))
+
             await db.commit()
-            print(f"✅ {len(savollar)} ta savol bazaga muvaffaqiyatli qo'shildi!")
+            print("✅ 1000 ta savol muvaffaqiyatli tayyorlandi!")
 
 # --- KLAVIATURALAR ---
 class GameCB(CallbackData, prefix="gm"):
@@ -158,16 +145,24 @@ class GameCB(CallbackData, prefix="gm"):
 def main_menu():
     builder = InlineKeyboardBuilder()
     builder.button(text="👦 Yoshlar uchun (Bepul)", callback_data=GameCB(action="youth_start").pack())
-    builder.button(text="👨 Kattalar uchun (10,000 so'm)", callback_data=GameCB(action="adult_pay").pack())
+    builder.button(text="👨 Kattalar uchun (Bellashuv)", callback_data=GameCB(action="adult_menu").pack())
+    builder.adjust(1)
+    return builder.as_markup()
+
+def adult_menu():
+    builder = InlineKeyboardBuilder()
+    builder.button(text="👥 2 kishilik (12,000 so'm)", callback_data=GameCB(action="pay_2").pack())
+    builder.button(text="👥 4 kishilik (17,000 so'm)", callback_data=GameCB(action="pay_4").pack())
+    builder.button(text="🔙 Orqaga", callback_data="back_main")
     builder.adjust(1)
     return builder.as_markup()
 
 def get_cards():
     builder = InlineKeyboardBuilder()
     for i in range(1, 51):
-        emoji = random.choice(["🎁", "🎈", "🌟", "🍎", "🚗", "🐶", "🎸", "💎", "🍕", "🏀", "🍇", "🚀", "⚽", "🎲", "🔔"])
+        emoji = random.choice(["🎁", "🎈", "🌟", "🍎", "🚗", "🐶", "🎸", "💎", "🍕", "🏀"])
         builder.button(text=emoji, callback_data=GameCB(action="open_card", val=i).pack())
-    builder.adjust(10)
+    builder.adjust(5) 
     return builder.as_markup()
 
 # --- HANDLERLAR ---
@@ -179,81 +174,26 @@ async def cmd_start(message: Message):
         await db.execute("INSERT OR IGNORE INTO users (user_id, role, status) VALUES (?, 'user', 'none')", (message.from_user.id,))
         await db.commit()
         
-    text = (
-        f"👋 Salom, <b>{message.from_user.first_name}</b>!\n\n"
-        f"🎰 <b>Super Mini Market Loto</b> botiga xush kelibsiz!\n\n"
-        f"👇 O'yin turini tanlang:"
-    )
+    text = f"👋 Salom, <b>{message.from_user.first_name}</b>!\n\n🎰 <b>Super Mini Market Loto</b> botiga xush kelibsiz!\n\n👇 O'yin turini tanlang:"
     await message.answer(text, reply_markup=main_menu(), parse_mode="HTML")
+
+@router.callback_query(F.data == "back_main")
+async def back_main(callback: CallbackQuery):
+    await callback.message.edit_text("Asosiy menyu:", reply_markup=main_menu())
+    await callback.answer()
 
 # --- YOSHLAR O'YINI ---
 @router.callback_query(GameCB.filter(F.action == "youth_start"))
 async def youth_start(callback: CallbackQuery):
-    await callback.message.edit_text("🎯 <b>Kartani tanlang!</b>\n\n50 ta kartadan bittasini tanlang.", reply_markup=get_cards(), parse_mode="HTML")
+    await callback.message.edit_text("🎯 <b>Kartani tanlang!</b>", reply_markup=get_cards(), parse_mode="HTML")
     await callback.answer()
 
-# --- KATTALAR TO'LOVI ---
-@router.callback_query(GameCB.filter(F.action == "adult_pay"))
-async def adult_pay(callback: CallbackQuery, state: FSMContext):
-    text = (
-        f"💳 <b>Kattalar uchun qatnashish (Pullik)</b>\n\n"
-        f"Qatnashish narxi: <b>10 000 so'm</b>\n\n"
-        f"To'lovni quyidagi kartaga o'tkazing:\n"
-        f"<code>{KARTA_RAQAMI}</code>\n"
-        f"<b>{KARTA_EGASI}</b>\n\n"
-        f"📸 To'lovni amalga oshirgach, <b>chekning skrinshotini (rasmini)</b> shu yerga yuboring."
-    )
-    await callback.message.edit_text(text, parse_mode="HTML")
-    await state.set_state("waiting_for_receipt")
-    await callback.answer()
-
-@router.message(F.photo, StateFilter("waiting_for_receipt"))
-async def receive_receipt(message: Message, state: FSMContext, bot: Bot):
-    user_id = message.from_user.id
-    await state.clear()
-    
-    admin_text = (
-        f"🧾 <b>Yangi to'lov cheki!</b>\n\n"
-        f"👤 Foydalanuvchi: {message.from_user.full_name}\n"
-        f"🆔 ID: <code>{user_id}</code>\n\n"
-        f"To'lovni tasdiqlaysizmi?"
-    )
-    builder = InlineKeyboardBuilder()
-    builder.button(text="✅ Tasdiqlash", callback_data=GameCB(action="approve_pay", val=user_id).pack())
-    builder.button(text="❌ Rad etish", callback_data="reject")
-    
-    await bot.send_photo(ADMIN_ID, message.photo[-1].file_id, caption=admin_text, reply_markup=builder.as_markup(), parse_mode="HTML")
-    await message.answer("⏳ Chek adminga yuborildi. Tasdiqlanishini kuting...")
-
-@router.callback_query(GameCB.filter(F.action == "approve_pay"))
-async def approve_payment(callback: CallbackQuery, callback_data: GameCB, bot: Bot):
-    if callback.from_user.id != ADMIN_ID: return
-    
-    user_id = callback_data.val
-    async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute("UPDATE users SET role = 'adult', status = 'active' WHERE user_id = ?", (user_id,))
-        await db.commit()
-        
-    await callback.message.edit_caption(caption="✅ To'lov tasdiqlandi! O'yin boshlandi.")
-    await bot.send_message(user_id, "✅ To'lov tasdiqlandi! Omad tilaymiz.\n\n🎯 Kartani tanlang:", reply_markup=get_cards())
-    await callback.answer("Tasdiqlandi!")
-
-@router.callback_query(F.data == "reject")
-async def reject_payment(callback: CallbackQuery):
-    if callback.from_user.id != ADMIN_ID: return
-    await callback.message.edit_caption(caption="❌ To'lov rad etildi.")
-    await callback.answer("Rad etildi!")
-
-# --- SAVOL VA JAVOB JARAYONI ---
 @router.callback_query(GameCB.filter(F.action == "open_card"))
-async def open_card(callback: CallbackQuery, callback_data: GameCB, state: FSMContext):
+async def open_card(callback: CallbackQuery, callback_data: GameCB):
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         cursor = await db.execute("SELECT * FROM questions ORDER BY RANDOM() LIMIT 1")
         q = await cursor.fetchone()
-        
-        if not q:
-            return await callback.answer("Hozircha savollar yo'q.", show_alert=True)
 
     options = [q['opt1'], q['opt2'], q['opt3'], q['opt4']]
     random.shuffle(options)
@@ -262,64 +202,39 @@ async def open_card(callback: CallbackQuery, callback_data: GameCB, state: FSMCo
     builder = InlineKeyboardBuilder()
     for opt in options:
         is_correct = "1" if opt == correct_text else "0"
-        builder.button(text=opt, callback_data=GameCB(action="answer", val=int(f"{is_correct}")).pack())
+        builder.button(text=opt, callback_data=GameCB(action="youth_answer", val=int(f"{is_correct}")).pack())
     builder.adjust(2)
-    
-    await state.update_data(q_correct=correct_text, start_time=asyncio.get_event_loop().time(), user_id=callback.from_user.id, msg_id=callback.message.message_id)
     
     text = f"❓ <b>SAVOL:</b> {q['question']}\n\n⏳ Javob berish uchun 15 soniya vaqt:"
     await callback.message.edit_text(text, reply_markup=builder.as_markup(), parse_mode="HTML")
     
-    asyncio.create_task(timeout_check(callback.message, state, callback.from_user.id))
+    # 15 soniyalik taymer
+    asyncio.create_task(youth_timeout(callback.message, callback.from_user.id))
 
-async def timeout_check(message: Message, state: FSMContext, user_id: int):
+async def youth_timeout(message: Message, user_id: int):
     await asyncio.sleep(15.0)
-    data = await state.get_data()
-    if data.get("start_time"):
-        await state.clear()
-        try:
-            await message.edit_text(
-                f"⏳ <b>Vaqt tugadi!</b>\n\n"
-                f"🎰 Senga Jokerning xabari bor, o'qib ko'r:\n"
-                f"<i>\"Bu qovoqni ishlat bolakay!\"</i> 🎃",
-                reply_markup=main_menu(), parse_mode="HTML"
-            )
-        except:
-            pass
+    try:
+        await message.edit_text(
+            f"⏳ <b>Vaqt tugadi!</b>\n\n"
+            f"🎰 Senga Jokerning xabari bor, o'qib ko'r:\n"
+            f"<i>\"Bu qovoqni ishlat bolakay!\"</i> 🎃",
+            reply_markup=main_menu(), parse_mode="HTML"
+        )
+    except:
+        pass
 
-@router.callback_query(GameCB.filter(F.action == "answer"))
-async def check_answer(callback: CallbackQuery, callback_data: GameCB, state: FSMContext, bot: Bot):
-    data = await state.get_data()
-    if not data.get("start_time") or data.get("user_id") != callback.from_user.id:
-        return await callback.answer("Bu savol eskirgan yoki sizga tegishli emas!", show_alert=True)
-    
-    elapsed = asyncio.get_event_loop().time() - data['start_time']
-    if elapsed > 15.5:
-        await state.clear()
-        return await callback.answer("Vaqt tugadi!", show_alert=True)
-        
-    await state.clear()
+@router.callback_query(GameCB.filter(F.action == "youth_answer"))
+async def youth_check_answer(callback: CallbackQuery, callback_data: GameCB):
     is_correct = str(callback_data.val)[-1] == "1"
-    user_id = callback.from_user.id
     
-    async with aiosqlite.connect(DB_PATH) as db:
-        cursor = await db.execute("SELECT role FROM users WHERE user_id = ?", (user_id,))
-        role_data = await cursor.fetchone()
-        role = role_data[0] if role_data else 'user'
-
     if is_correct:
-        if role == 'adult':
-            await bot.send_message(ADMIN_ID, f"💰 <b>Kattalar o'yinida yutuq!</b>\n\n👤 Foydalanuvchi: {callback.from_user.full_name} (@{callback.from_user.username})\n💵 Yutuq: 15,000 so'm\n\nKarta raqamini so'rang!")
-            await callback.message.edit_text("🎉 <b>To'g'ri javob!</b>\n\nSiz 15,000 so'm yutdingiz! Pul o'tkazish uchun karta raqamingizni yuboring:", reply_markup=main_menu())
-            await state.set_state("waiting_for_card")
-        else:
-            text = (
-                f"🎉 <b>TABRIKLAYMIZ, SIZ YUTDINGIZ!</b> 🎉\n\n"
-                f"🎁 Yutug'ingiz: <b>15% CHEGIRMA</b>\n\n"
-                f"📍 Urgut tumanidagi 3-umumta'lim maktabi ro'parasidagi <b>Super Mini Market</b>dan xarid qiling.\n\n"
-                f"📸 Chegirmadan foydalanish uchun <b>skrinshot</b> oling!"
-            )
-            await callback.message.edit_text(text, reply_markup=main_menu(), parse_mode="HTML")
+        text = (
+            f"🎉 <b>TABRIKLAYMIZ, SIZ YUTDINGIZ!</b> 🎉\n\n"
+            f"🎁 Yutug'ingiz: <b>15% CHEGIRMA</b>\n\n"
+            f"📍 Urgut tumanidagi 3-umumta'lim maktabi ro'parasidagi <b>Super Mini Market</b>dan xarid qiling.\n\n"
+            f"📸 Chegirmadan foydalanish uchun <b>skrinshot</b> oling!"
+        )
+        await callback.message.edit_text(text, reply_markup=main_menu(), parse_mode="HTML")
     else:
         await callback.message.edit_text(
             f"❌ <b>Xato javob!</b>\n\n"
@@ -329,77 +244,161 @@ async def check_answer(callback: CallbackQuery, callback_data: GameCB, state: FS
         )
     await callback.answer()
 
-@router.message(StateFilter("waiting_for_card"))
-async def get_card_number(message: Message, state: FSMContext, bot: Bot):
-    await state.clear()
-    card_num = message.text
-    await bot.send_message(ADMIN_ID, f"💳 <b>Karta raqami keldi!</b>\n\n👤 Foydalanuvchi: {message.from_user.full_name}\n💳 Karta: <code>{card_num}</code>")
-    await message.answer("✅ Karta raqamingiz adminga yuborildi. Pul tez orada o'tkaziladi!", reply_markup=main_menu())
 
-# --- ADMIN: YANGI SAVOL QO'SHISH ---
-class AddQuestion(StatesGroup):
-    q = State(); o1 = State(); o2 = State(); o3 = State(); o4 = State(); c = State()
+# --- KATTALAR BELLASHUVI (PvP) ---
+@router.callback_query(GameCB.filter(F.action == "adult_menu"))
+async def adult_menu_handler(callback: CallbackQuery):
+    await callback.message.edit_text("👨 <b>Kattalar uchun bellashuv turini tanlang:</b>", reply_markup=adult_menu(), parse_mode="HTML")
+    await callback.answer()
 
-@router.message(Command("add"))
-async def admin_add(message: Message, state: FSMContext):
-    if message.from_user.id != ADMIN_ID: return
-    await message.answer("1️⃣ Savolni kiriting:")
-    await state.set_state(AddQuestion.q)
-
-@router.message(AddQuestion.q)
-async def a1(message: Message, state: FSMContext):
-    await state.update_data(q=message.text)
-    await message.answer("2️⃣ 1-variantni kiriting:")
-    await state.set_state(AddQuestion.o1)
+@router.callback_query(GameCB.filter(F.action.in_({"pay_2", "pay_4"})))
+async def adult_pay(callback: CallbackQuery, callback_data: GameCB, state: FSMContext):
+    mode = callback_data.action 
+    amount = "12,000" if mode == "pay_2" else "17,000"
     
-@router.message(AddQuestion.o1)
-async def a2(message: Message, state: FSMContext):
-    await state.update_data(o1=message.text)
-    await message.answer("3️⃣ 2-variantni kiriting:")
-    await state.set_state(AddQuestion.o2)
+    await state.update_data(mode=mode)
+    
+    text = (
+        f"💳 <b>To'lov ({amount} so'm)</b>\n\n"
+        f"To'lovni quyidagi kartaga o'tkazing:\n"
+        f"<code>{KARTA_RAQAMI}</code>\n<b>{KARTA_EGASI}</b>\n\n"
+        f"📸 Chek skrinshotini shu yerga yuboring."
+    )
+    await callback.message.edit_text(text, parse_mode="HTML")
+    await state.set_state("waiting_for_receipt")
+    await callback.answer()
 
-@router.message(AddQuestion.o2)
-async def a3(message: Message, state: FSMContext):
-    await state.update_data(o2=message.text)
-    await message.answer("4️⃣ 3-variantni kiriting:")
-    await state.set_state(AddQuestion.o3)
-
-@router.message(AddQuestion.o3)
-async def a4(message: Message, state: FSMContext):
-    await state.update_data(o3=message.text)
-    await message.answer("5️⃣ 4-variantni kiriting:")
-    await state.set_state(AddQuestion.o4)
-
-@router.message(AddQuestion.o4)
-async def a5(message: Message, state: FSMContext):
-    await state.update_data(o4=message.text)
-    await message.answer("6️⃣ To'g'ri javob raqamini kiriting (1, 2, 3, yoki 4):")
-    await state.set_state(AddQuestion.c)
-
-@router.message(AddQuestion.c)
-async def a6(message: Message, state: FSMContext):
-    if message.text not in ["1", "2", "3", "4"]:
-        return await message.answer("Faqat 1, 2, 3 yoki 4 raqamini kiriting:")
+@router.message(F.photo, StateFilter("waiting_for_receipt"))
+async def receive_receipt(message: Message, state: FSMContext, bot: Bot):
+    user_id = message.from_user.id
     data = await state.get_data()
-    async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute("INSERT INTO questions (question, opt1, opt2, opt3, opt4, correct_opt) VALUES (?,?,?,?,?,?)", 
-                         (data['q'], data['o1'], data['o2'], data['o3'], data['o4'], int(message.text)))
-        await db.commit()
+    mode = data.get("mode", "pay_2")
+    amount = "12,000" if mode == "pay_2" else "17,000"
     await state.clear()
-    await message.answer("✅ Savol bazaga qo'shildi!")
+    
+    admin_text = f"🧾 <b>Yangi to'lov cheki!</b>\n\n👤 {message.from_user.full_name}\n🆔 <code>{user_id}</code>\n💰 Summa: {amount}\n🎮 Tur: {'2 kishilik' if mode == 'pay_2' else '4 kishilik'}\n\nTasdiqlaysizmi?"
+    builder = InlineKeyboardBuilder()
+    builder.button(text="✅ Tasdiqlash", callback_data=f"approve_{mode}_{user_id}")
+    builder.button(text="❌ Rad etish", callback_data="reject")
+    
+    await bot.send_photo(ADMIN_ID, message.photo[-1].file_id, caption=admin_text, reply_markup=builder.as_markup(), parse_mode="HTML")
+    await message.answer("⏳ Chek adminga yuborildi. Tasdiqlanishini kuting...")
+
+@router.callback_query(F.data.startswith("approve_"))
+async def approve_payment(callback: CallbackQuery, bot: Bot):
+    if callback.from_user.id != ADMIN_ID: return
+    
+    _, mode, user_id = callback.data.split("_")
+    user_id = int(user_id)
+    
+    await callback.message.edit_caption(caption="✅ To'lov tasdiqlandi! Navbatga qo'shildi.")
+    await callback.answer("Tasdiqlandi!")
+    
+    if mode == "pay_2":
+        if user_id not in queue_2: queue_2.append(user_id)
+        await bot.send_message(user_id, "✅ To'lov tasdiqlandi! (2 kishilik). Navbatga qo'shildingiz, raqibingizni kuting...")
+        if len(queue_2) >= 2:
+            p1, p2 = queue_2.pop(0), queue_2.pop(0)
+            await start_duel(bot, [p1, p2], "2 kishilik", 20000)
+            
+    elif mode == "pay_4":
+        if user_id not in queue_4: queue_4.append(user_id)
+        await bot.send_message(user_id, "✅ To'lov tasdiqlandi! (4 kishilik). Navbatga qo'shildingiz, raqiblaringizni kuting...")
+        if len(queue_4) >= 4:
+            p1, p2, p3, p4 = queue_4.pop(0), queue_4.pop(0), queue_4.pop(0), queue_4.pop(0)
+            await start_duel(bot, [p1, p2, p3, p4], "4 kishilik", 32000)
+
+@router.callback_query(F.data == "reject")
+async def reject_payment(callback: CallbackQuery):
+    if callback.from_user.id != ADMIN_ID: return
+    await callback.message.edit_caption(caption="❌ To'lov rad etildi.")
+    await callback.answer("Rad etildi!")
+
+async def start_duel(bot: Bot, players: list, duel_type: str, prize: int):
+    duel_id = random.randint(1000, 9999)
+    active_duels[duel_id] = {'players': players, 'answers': {}, 'winner': None}
+    
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute("SELECT * FROM questions ORDER BY RANDOM() LIMIT 1")
+        q = await cursor.fetchone()
+
+    options = [q['opt1'], q['opt2'], q['opt3'], q['opt4']]
+    random.shuffle(options)
+    correct_text = q[f"opt{q['correct_opt']}"]
+    
+    builder = InlineKeyboardBuilder()
+    for opt in options:
+        is_correct = "1" if opt == correct_text else "0"
+        builder.button(text=opt, callback_data=GameCB(action="duel_answer", val=int(f"{duel_id}{is_correct}")).pack())
+    builder.adjust(2)
+    
+    text = (
+        f"⚔️ <b>BELLASHUV BOSHLANDI!</b> ⚔️\n"
+        f"({duel_type} o'yini)\n\n"
+        f"Kim birinchi bo'lib to'g'ri javobni bosadi, o'sha <b>{prize:,} so'm</b> yutadi!\n\n"
+        f"❓ <b>SAVOL:</b> {q['question']}"
+    )
+    
+    for player in players:
+        try:
+            await bot.send_message(player, text, reply_markup=builder.as_markup(), parse_mode="HTML")
+        except:
+            pass
+
+@router.callback_query(GameCB.filter(F.action == "duel_answer"))
+async def duel_answer(callback: CallbackQuery, callback_data: GameCB, bot: Bot):
+    ans_data = str(callback_data.val)
+    duel_id = int(ans_data[:-1])
+    is_correct = ans_data[-1] == "1"
+    
+    if duel_id not in active_duels:
+        return await callback.answer("Bu bellashuv allaqachon tugagan!", show_alert=True)
+        
+    duel = active_duels[duel_id]
+    user_id = callback.from_user.id
+    
+    if duel['winner']:
+        return await callback.answer("Afsuski, raqibingiz sizdan tezroq yutdi. Keyingi safar omad!", show_alert=True)
+        
+    if user_id not in duel['players']:
+        return await callback.answer("Siz bu bellashuvda qatnashmayapsiz!", show_alert=True)
+        
+    if user_id in duel['answers']:
+        return await callback.answer("Siz allaqachon javob berdingiz! Kutib turing.", show_alert=True)
+        
+    duel['answers'][user_id] = is_correct
+    
+    if is_correct:
+        duel['winner'] = user_id
+        prize = 20000 if len(duel['players']) == 2 else 32000
+        
+        await bot.send_message(user_id, f"🎉 <b>TABRIKLAYMIZ, SIZ YUTDINGIZ!</b> 🎉\n\nSiz raqiblaringizni tezroq yutdingiz va <b>{prize:,} so'mni</b> qo'lga kiritdingiz!\n\nAdmin pulni o'tkazishi uchun karta raqamingizni yuboring:")
+        await bot.send_message(ADMIN_ID, f"⚔️ <b>Bellashuv yakunlandi!</b>\n🏆 G'olib ID: <code>{user_id}</code>\n💰 Yutuq: {prize:,} so'm\n\nG'olibdan karta raqamini so'rang!")
+        
+        for p in duel['players']:
+            if p != user_id:
+                try:
+                    await bot.send_message(p, f"❌ <b>Afsuski, siz yutqazdingiz.</b>\n\nRaqibingiz sizdan tezroq to'g'ri javob berdi. Omad keyingi safar!")
+                except:
+                    pass
+                    
+        await callback.message.edit_text("✅ Siz to'g'ri javob berdingiz va yutdingiz! Admin bilan bog'lanasiz.", reply_markup=main_menu())
+        
+    else:
+        await callback.message.edit_text("❌ Xato javob! Qolgan o'yinchilar yutishi mumkin. Kuting...", reply_markup=main_menu())
+        
+        if len(duel['answers']) == len(duel['players']):
+            await bot.send_message(ADMIN_ID, f"⚠️ Bellashuvda hamma xato qildi! (Duel ID: {duel_id}). Hech kim yutmadi.")
+            del active_duels[duel_id]
 
 # --- ISHGA TUSHIRISH ---
 async def main():
-    # Eski bazani tozalash (agar xohlasangiz, bu qatorni o'chirib qo'ying)
-    import os
-    if os.path.exists(DB_PATH):
-        os.remove(DB_PATH)
-
-    await init_db() 
+    await init_db()
     bot = Bot(token=TOKEN)
     dp = Dispatcher()
     dp.include_router(router)
-    print("🤖 Loto boti ishga tushdi...")
+    print("🤖 Tizim ishga tushdi. Bot tayyor!")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
