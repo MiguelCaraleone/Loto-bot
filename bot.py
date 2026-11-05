@@ -12,16 +12,16 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.filters.callback_data import CallbackData
 
 # --- SOZLAMALAR ---
-TOKEN = "9237388648:AAGUuyXN-79BJqQzjHR9O-ngoRqGS5a6bOA" 
+TOKEN = "9237388648:AAHNnfVKjUc5wWH3-UnKodCPJ31UMbI092M" 
 ADMIN_ID = 1302845749
 DB_PATH = "loto_game.db"
 KARTA_RAQAMI = "9860 3501 4780 2176"
 KARTA_EGASI = "Mamatkulov Izzatillo"
 
-# Joker rasmi
+# Joker rasmi (to'g'ridan-to'g'ri havola)
 JOKER_IMG_URL = "https://i.ibb.co/RkRvBsHP/file-00000000865082469ff369a93b107407.png"
 
-# --- BAZA VA SAVOLLAR ---
+# --- BAZA VA AVTOMATIK SAVOLLAR ---
 async def init_db():
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("""CREATE TABLE IF NOT EXISTS questions 
