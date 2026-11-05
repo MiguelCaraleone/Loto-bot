@@ -18,6 +18,9 @@ DB_PATH = "loto_game.db"
 KARTA_RAQAMI = "9860 3501 4780 2176"
 KARTA_EGASI = "Mamatkulov Izzatillo"
 
+# Joker rasmining to'g'ridan-to'g'ri havolasi (buni o'zingiznikiga almashtiring)
+JOKER_IMG_URL = "https://i.ibb.co/6PZ8Z9x/joker.jpg" # Namuna havola
+
 # --- BAZA VA AVTOMATIK SAVOLLAR ---
 async def init_db():
     async with aiosqlite.connect(DB_PATH) as db:
@@ -32,11 +35,10 @@ async def init_db():
         cursor = await db.execute("SELECT COUNT(*) FROM questions")
         count = (await cursor.fetchone())[0]
 
-        # Agar bazada savollar kam bo'lsa, 1000 ta tayyor savolni yozamiz
         if count < 1000:
-            print("⏳ 1000 ta tayyor savollar bazaga yozilmoqda...")
+            print("⏳ 1000 ta savol bazaga yozilmoqda...")
             
-            # Asosiy 40 ta savol (qo'lda yozilgan)
+            # 40 ta haqiqiy, qiziqarli savollar (qo'lda yozilgan)
             savollar = [
                 ("O'zbekistonning poytaxti qaysi shahar?", "Toshkent", "Samarqand", "Buxoro", "Namangan", 1),
                 ("Dunyodagi eng baland tog' qaysi?", "Everest", "Elbrus", "Kilimanjaro", "Montblan", 1),
@@ -83,28 +85,16 @@ async def init_db():
             for q in savollar:
                 await db.execute("INSERT INTO questions (question, opt1, opt2, opt3, opt4, correct_opt) VALUES (?,?,?,?,?,?)", q)
             
-            # Qolgan 960 ta savolni avtomatik to'ldirish (turli mavzularda)
-            mavzular = ["Geografiya", "Tarix", "Biologiya", "Adabiyot", "Matematika", "Fizika", "Kimyo", "Sport", "San'at"]
-            fanlar = {
-                "Geografiya": ["poytaxti", "daryosi", "tog'i", "ko'li", "aholisi"],
-                "Tarix": ["yili", "davri", "shaxsi", "voqeasi", "davlati"],
-                "Biologiya": ["organi", "hayvoni", "o'simligi", "hujayrasi", "tizimi"],
-                "Adabiyot": ["asari", "muallifi", "qahramoni", "dostoni", "she'ri"],
-                "Matematika": ["soni", "amali", "tenglamasi", "geometriyasi", "algoritmi"],
-                "Fizika": ["qonuni", "kuchi", "tezligi", "energiyasi", "moddasi"],
-                "Kimyo": ["elementi", "reaksiyasi", "birikmasi", "formulasi", "moddasi"],
-                "Sport": ["o'yini", "musobaqasi", "chempioni", "qoidasi", "maydoni"],
-                "San'at": ["asar", "muallifi", "uslubi", "janri", "ijodkori"]
-            }
-            
+            # Qolgan 960 ta savolni avtomatik to'ldirish (xatosiz)
             current_count = len(savollar)
+            mavzular = ["Geografiya", "Tarix", "Biologiya", "Adabiyot", "Matematika", "Fizika", "Kimyo", "Sport", "San'at"]
+            
             while current_count < 1000:
                 mavzu = random.choice(mavzular)
-                so'z = random.choice(fanlar[mavzu])
-                savol_text = f"{mavzu} bo'yicha qaysi {so'z} to'g'ri?"
+                num = random.randint(1, 1000)
                 
-                # Variantlar yaratish
-                togri_javob = f"To'g'ri {mavzu} {so'z}si"
+                savol_text = f"{mavzu} bo'yicha {num}-savol qaysi?"
+                togri_javob = f"To'g'ri javob {num}"
                 opts = [togri_javob, f"Xato variant 1", f"Xato variant 2", f"Xato variant 3"]
                 random.shuffle(opts)
                 correct = opts.index(togri_javob) + 1
@@ -152,8 +142,25 @@ async def cmd_start(message: Message):
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("INSERT OR IGNORE INTO users (user_id, role, status) VALUES (?, 'user', 'none')", (message.from_user.id,))
         await db.commit()
-    text = f"👋 Salom, <b>{message.from_user.first_name}</b>!\n\n🎰 <b>Super Mini Market Loto</b> botiga xush kelibsiz!\n\n👇 O'yin turini tanlang:"
-    await message.answer(text, reply_markup=main_menu(), parse_mode="HTML")
+        
+    text = (
+        f"👋 Salom, <b>{message.from_user.first_name}</b>!\n\n"
+        f"🃏 Men <b>Joker</b>! Sizni <b>Super Mini Market Loto</b> o'yiniga taklif qilaman.\n"
+        f"🎁 Omadingizni sinab ko'ring va yutuqlarni qo'lga kiriting!\n\n"
+        f"👇 O'yin turini tanlang:"
+    )
+    
+    try:
+        # Rasm bilan yuborish
+        await message.answer_photo(
+            photo=JOKER_IMG_URL, 
+            caption=text, 
+            reply_markup=main_menu(), 
+            parse_mode="HTML"
+        )
+    except Exception as e:
+        # Agar rasm havolasi ishlamasa, oddiy matn yuboradi
+        await message.answer(text, reply_markup=main_menu(), parse_mode="HTML")
 
 @router.callback_query(F.data == "back_main")
 async def back_main(callback: CallbackQuery):
@@ -333,8 +340,31 @@ async def duel_answer(callback: CallbackQuery, callback_data: GameCB, bot: Bot):
         try: await callback.message.edit_text("✅ Siz to'g'ri javob berdingiz va yutdingiz! Admin bilan bog'lanasiz.", reply_markup=main_menu())
         except: pass
     else:
-        try: await callback.message.edit_text("❌ Xato javob! Qolgan o'yinchilar yutishi mumkin. Kuting...", reply_markup=main_menu())
+        # YUTQAZGANLARGA BUTUN EKRANNI QOPLAYDIGAN XABAR
+        aqlli_gap = (
+            "🚨🚨🚨 <b>DIQQAT!</b> 🚨🚨🚨\n\n"
+            "💥💥💥 <b>S  E  N</b> 💥💥💥\n"
+            "🔥🔥🔥 <b>A  X  M  O  Q  S  A  N !</b> 🔥🔥🔥\n\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "❌ <b>YUTQAZDINGIZ!</b> ❌\n"
+            "━━━━━━━━━━━━━━━━━━━━\n\n"
+            "Raqibingiz sizdan ancha tezroq va aqlliroq bo'lib chiqdi.\n"
+            "Miyangizni ishlatib ko'ring! 🧠🤡"
+        )
+        try: await callback.message.edit_text(aqlli_gap, reply_markup=main_menu(), parse_mode="HTML")
         except: pass
+        
+        # O'yindagi boshqa odamlarga ham xabar berish (agar 4 kishilik bo'lsa)
+        async with aiosqlite.connect(DB_PATH) as db:
+            cursor = await db.execute("SELECT user_id FROM queues WHERE status = 'playing'")
+            playing_users = [r[0] for r in await cursor.fetchall()]
+            
+            for p in playing_users:
+                if p != user_id:
+                    try:
+                        await bot.send_message(p, aqlli_gap, parse_mode="HTML")
+                    except: pass
+                    
     await callback.answer()
 
 # --- ISHGA TUSHIRISH ---
