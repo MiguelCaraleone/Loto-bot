@@ -141,16 +141,18 @@ async def cmd_start(message: Message):
         await db.execute("INSERT OR IGNORE INTO users (user_id, role, status) VALUES (?, 'user', 'none')", (message.from_user.id,))
         await db.commit()
         
+    # O'zgartirilgan matn
     text = (
         f"👋 Salom, <b>{message.from_user.first_name}</b>!\n\n"
-        f"🃏 Men <b>Joker</b>! Sizni <b>Super Mini Market Loto</b> o'yiniga taklif qilaman.\n"
+        f"🃏 Men Joker! Sizni o'z o'yinimga taklif etaman.\n"
         f"🎁 Omadingizni sinab ko'ring va yutuqlarni qo'lga kiriting!\n\n"
         f"👇 O'yin turini tanlang:"
     )
     
     try:
         await message.answer_photo(photo=JOKER_IMG_URL, caption=text, reply_markup=main_menu(), parse_mode="HTML")
-    except Exception:
+    except Exception as e:
+        print(f"Rasm yuklashda xato: {e}")
         await message.answer(text, reply_markup=main_menu(), parse_mode="HTML")
 
 @router.callback_query(F.data == "back_main")
