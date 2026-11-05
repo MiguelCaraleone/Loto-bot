@@ -18,12 +18,12 @@ DB_PATH = "loto_game.db"
 KARTA_RAQAMI = "9860 3501 4780 2176"
 KARTA_EGASI = "Mamatkulov Izzatillo"
 
-# --- NAVBAT VA O'YIN HOLATI ---
+# --- XOTIRADAGI NAVBATLAR ---
 queue_2 = [] 
 queue_4 = []
 active_duels = {} # {duel_id: {'players': [], 'answers': {}, 'winner': None}}
 
-# --- AVTOMATIK SAVOLLAR GENERATORI ---
+# --- 1. AVTOMATIK SAVOLLAR VA BAZA ---
 async def init_db():
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("""CREATE TABLE IF NOT EXISTS questions 
@@ -36,9 +36,9 @@ async def init_db():
         count = (await cursor.fetchone())[0]
 
         if count < 1000:
-            print("⏳ 1000 ta savol avtomatik tayyorlanmoqda...")
+            print("⏳ 1000 ta savol avtomatik tayyorlanmoqda, iltimos kuting...")
             
-            # Matematik savollar
+            # Matematik savollar (200 ta)
             for _ in range(200):
                 a, b = random.randint(10, 100), random.randint(10, 100)
                 op = random.choice(['+', '-', '*'])
@@ -52,7 +52,7 @@ async def init_db():
                 await db.execute("INSERT INTO questions (question, opt1, opt2, opt3, opt4, correct_opt) VALUES (?,?,?,?,?,?)",
                                  (f"{a} {op} {b} nechaga teng?", str(opts[0]), str(opts[1]), str(opts[2]), str(opts[3]), correct))
 
-            # Geografiya
+            # Geografiya (10 ta)
             geo = [
                 ("O'zbekiston poytaxti qaysi shahar?", "Toshkent", "Samarqand", "Buxoro", "Andijon", 1),
                 ("Eng katta okean qaysi?", "Tinch okeani", "Atlantika", "Hind okeani", "Shimoliy Muz", 1),
@@ -68,7 +68,7 @@ async def init_db():
             for q in geo:
                 await db.execute("INSERT INTO questions (question, opt1, opt2, opt3, opt4, correct_opt) VALUES (?,?,?,?,?,?)", q)
 
-            # Tarix
+            # Tarix (10 ta)
             hist = [
                 ("O'zbekiston qachon mustaqil bo'lgan?", "1991", "1989", "1992", "1990", 1),
                 ("Birinchi jahon urushi qachon boshlangan?", "1914", "1918", "1939", "1945", 1),
@@ -84,7 +84,7 @@ async def init_db():
             for q in hist:
                 await db.execute("INSERT INTO questions (question, opt1, opt2, opt3, opt4, correct_opt) VALUES (?,?,?,?,?,?)", q)
 
-            # Biologiya
+            # Biologiya (10 ta)
             bio = [
                 ("Eng katta hayvon qaysi?", "Ko'k kit", "Fil", "Jirafa", "Karkidon", 1),
                 ("Eng tez yuguradigan hayvon qaysi?", "Gepard", "Sher", "Yo'lbars", "Ot", 1),
@@ -100,7 +100,7 @@ async def init_db():
             for q in bio:
                 await db.execute("INSERT INTO questions (question, opt1, opt2, opt3, opt4, correct_opt) VALUES (?,?,?,?,?,?)", q)
 
-            # Adabiyot
+            # Adabiyot (10 ta)
             lit = [
                 ("Alpomish dostoni qahramoni kim?", "Alpomish", "Go'ro'g'li", "Manas", "Kor o'g'li", 1),
                 ("Navoiyning taxallusi nima?", "Alisher", "Lutfiy", "Foniy", "Bobur", 1),
@@ -116,16 +116,15 @@ async def init_db():
             for q in lit:
                 await db.execute("INSERT INTO questions (question, opt1, opt2, opt3, opt4, correct_opt) VALUES (?,?,?,?,?,?)", q)
 
-            # Qolgan savollarni generatsiya qilish (jami 1000 ta bo'lguncha)
-            mavzular = ["Fan", "Sport", "San'at", "Musiqa", "Texnologiya"]
+            # Qolgan 740 ta savol (jami 1000 ta bo'lguncha avtomatik generatsiya)
+            mavzular = ["Fan", "Sport", "San'at", "Musiqa", "Texnologiya", "Geografiya", "Tarix"]
             while True:
                 cursor = await db.execute("SELECT COUNT(*) FROM questions")
                 current_count = (await cursor.fetchone())[0]
-                if current_count >= 1000:
-                    break
+                if current_count >= 1000: break
                 
                 m = random.choice(mavzular)
-                savol = f"{m}ga oid savol #{current_count+1}?"
+                savol = f"{m} bo'yicha bilimingizni sinang #{current_count+1}?"
                 togri = "To'g'ri javob"
                 opts = [togri, "Xato 1", "Xato 2", "Xato 3"]
                 random.shuffle(opts)
@@ -137,7 +136,7 @@ async def init_db():
             await db.commit()
             print("✅ 1000 ta savol muvaffaqiyatli tayyorlandi!")
 
-# --- KLAVIATURALAR ---
+# --- 2. KLAVIATURALAR ---
 class GameCB(CallbackData, prefix="gm"):
     action: str
     val: int = 0
@@ -165,7 +164,7 @@ def get_cards():
     builder.adjust(5) 
     return builder.as_markup()
 
-# --- HANDLERLAR ---
+# --- 3. HANDLERLAR ---
 router = Router()
 
 @router.message(Command("start"))
@@ -208,7 +207,6 @@ async def open_card(callback: CallbackQuery, callback_data: GameCB):
     text = f"❓ <b>SAVOL:</b> {q['question']}\n\n⏳ Javob berish uchun 15 soniya vaqt:"
     await callback.message.edit_text(text, reply_markup=builder.as_markup(), parse_mode="HTML")
     
-    # 15 soniyalik taymer
     asyncio.create_task(youth_timeout(callback.message, callback.from_user.id))
 
 async def youth_timeout(message: Message, user_id: int):
@@ -244,8 +242,7 @@ async def youth_check_answer(callback: CallbackQuery, callback_data: GameCB):
         )
     await callback.answer()
 
-
-# --- KATTALAR BELLASHUVI (PvP) ---
+# --- 4. KATTALAR BELLASHUVI (PvP) ---
 @router.callback_query(GameCB.filter(F.action == "adult_menu"))
 async def adult_menu_handler(callback: CallbackQuery):
     await callback.message.edit_text("👨 <b>Kattalar uchun bellashuv turini tanlang:</b>", reply_markup=adult_menu(), parse_mode="HTML")
@@ -255,7 +252,6 @@ async def adult_menu_handler(callback: CallbackQuery):
 async def adult_pay(callback: CallbackQuery, callback_data: GameCB, state: FSMContext):
     mode = callback_data.action 
     amount = "12,000" if mode == "pay_2" else "17,000"
-    
     await state.update_data(mode=mode)
     
     text = (
@@ -288,22 +284,32 @@ async def receive_receipt(message: Message, state: FSMContext, bot: Bot):
 async def approve_payment(callback: CallbackQuery, bot: Bot):
     if callback.from_user.id != ADMIN_ID: return
     
-    _, mode, user_id = callback.data.split("_")
-    user_id = int(user_id)
+    try:
+        _, mode, user_id = callback.data.split("_")
+        user_id = int(user_id)
+    except:
+        return await callback.answer("Xato ma'lumot!", show_alert=True)
+
+    try:
+        await callback.message.edit_caption(caption="✅ To'lov tasdiqlandi! O'yinchi navbatga qo'shildi.")
+    except: pass
     
-    await callback.message.edit_caption(caption="✅ To'lov tasdiqlandi! Navbatga qo'shildi.")
     await callback.answer("Tasdiqlandi!")
-    
+
     if mode == "pay_2":
         if user_id not in queue_2: queue_2.append(user_id)
-        await bot.send_message(user_id, "✅ To'lov tasdiqlandi! (2 kishilik). Navbatga qo'shildingiz, raqibingizni kuting...")
+        try: await bot.send_message(user_id, "✅ To'lov tasdiqlandi! (2 kishilik). Navbatga qo'shildingiz, raqibingizni kuting...")
+        except: pass
+            
         if len(queue_2) >= 2:
             p1, p2 = queue_2.pop(0), queue_2.pop(0)
             await start_duel(bot, [p1, p2], "2 kishilik", 20000)
             
     elif mode == "pay_4":
         if user_id not in queue_4: queue_4.append(user_id)
-        await bot.send_message(user_id, "✅ To'lov tasdiqlandi! (4 kishilik). Navbatga qo'shildingiz, raqiblaringizni kuting...")
+        try: await bot.send_message(user_id, "✅ To'lov tasdiqlandi! (4 kishilik). Navbatga qo'shildingiz, raqiblaringizni kuting...")
+        except: pass
+            
         if len(queue_4) >= 4:
             p1, p2, p3, p4 = queue_4.pop(0), queue_4.pop(0), queue_4.pop(0), queue_4.pop(0)
             await start_duel(bot, [p1, p2, p3, p4], "4 kishilik", 32000)
@@ -311,7 +317,8 @@ async def approve_payment(callback: CallbackQuery, bot: Bot):
 @router.callback_query(F.data == "reject")
 async def reject_payment(callback: CallbackQuery):
     if callback.from_user.id != ADMIN_ID: return
-    await callback.message.edit_caption(caption="❌ To'lov rad etildi.")
+    try: await callback.message.edit_caption(caption="❌ To'lov rad etildi.")
+    except: pass
     await callback.answer("Rad etildi!")
 
 async def start_duel(bot: Bot, players: list, duel_type: str, prize: int):
@@ -322,6 +329,8 @@ async def start_duel(bot: Bot, players: list, duel_type: str, prize: int):
         db.row_factory = aiosqlite.Row
         cursor = await db.execute("SELECT * FROM questions ORDER BY RANDOM() LIMIT 1")
         q = await cursor.fetchone()
+
+    if not q: return
 
     options = [q['opt1'], q['opt2'], q['opt3'], q['opt4']]
     random.shuffle(options)
@@ -343,8 +352,8 @@ async def start_duel(bot: Bot, players: list, duel_type: str, prize: int):
     for player in players:
         try:
             await bot.send_message(player, text, reply_markup=builder.as_markup(), parse_mode="HTML")
-        except:
-            pass
+        except Exception as e:
+            print(f"Xato: {e}")
 
 @router.callback_query(GameCB.filter(F.action == "duel_answer"))
 async def duel_answer(callback: CallbackQuery, callback_data: GameCB, bot: Bot):
@@ -373,32 +382,36 @@ async def duel_answer(callback: CallbackQuery, callback_data: GameCB, bot: Bot):
         duel['winner'] = user_id
         prize = 20000 if len(duel['players']) == 2 else 32000
         
-        await bot.send_message(user_id, f"🎉 <b>TABRIKLAYMIZ, SIZ YUTDINGIZ!</b> 🎉\n\nSiz raqiblaringizni tezroq yutdingiz va <b>{prize:,} so'mni</b> qo'lga kiritdingiz!\n\nAdmin pulni o'tkazishi uchun karta raqamingizni yuboring:")
-        await bot.send_message(ADMIN_ID, f"⚔️ <b>Bellashuv yakunlandi!</b>\n🏆 G'olib ID: <code>{user_id}</code>\n💰 Yutuq: {prize:,} so'm\n\nG'olibdan karta raqamini so'rang!")
+        try:
+            await bot.send_message(user_id, f"🎉 <b>TABRIKLAYMIZ, SIZ YUTDINGIZ!</b> 🎉\n\nSiz raqiblaringizni tezroq yutdingiz va <b>{prize:,} so'mni</b> qo'lga kiritdingiz!\n\nAdmin pulni o'tkazishi uchun karta raqamingizni yuboring:")
+            await bot.send_message(ADMIN_ID, f"⚔️ <b>Bellashuv yakunlandi!</b>\n🏆 G'olib ID: <code>{user_id}</code>\n💰 Yutuq: {prize:,} so'm\n\nG'olibdan karta raqamini so'rang!")
+        except: pass
         
         for p in duel['players']:
             if p != user_id:
                 try:
                     await bot.send_message(p, f"❌ <b>Afsuski, siz yutqazdingiz.</b>\n\nRaqibingiz sizdan tezroq to'g'ri javob berdi. Omad keyingi safar!")
-                except:
-                    pass
+                except: pass
                     
-        await callback.message.edit_text("✅ Siz to'g'ri javob berdingiz va yutdingiz! Admin bilan bog'lanasiz.", reply_markup=main_menu())
+        try: await callback.message.edit_text("✅ Siz to'g'ri javob berdingiz va yutdingiz! Admin bilan bog'lanasiz.", reply_markup=main_menu())
+        except: pass
         
     else:
-        await callback.message.edit_text("❌ Xato javob! Qolgan o'yinchilar yutishi mumkin. Kuting...", reply_markup=main_menu())
+        try: await callback.message.edit_text("❌ Xato javob! Qolgan o'yinchilar yutishi mumkin. Kuting...", reply_markup=main_menu())
+        except: pass
         
         if len(duel['answers']) == len(duel['players']):
-            await bot.send_message(ADMIN_ID, f"⚠️ Bellashuvda hamma xato qildi! (Duel ID: {duel_id}). Hech kim yutmadi.")
+            try: await bot.send_message(ADMIN_ID, f"⚠️ Bellashuvda hamma xato qildi! (Duel ID: {duel_id}). Hech kim yutmadi.")
+            except: pass
             del active_duels[duel_id]
 
-# --- ISHGA TUSHIRISH ---
+# --- 5. ISHGA TUSHIRISH ---
 async def main():
     await init_db()
     bot = Bot(token=TOKEN)
     dp = Dispatcher()
     dp.include_router(router)
-    print("🤖 Tizim ishga tushdi. Bot tayyor!")
+    print("🤖 Tizim ishga tushdi. Bot to'liq tayyor!")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
