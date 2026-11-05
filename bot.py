@@ -3,7 +3,7 @@ import logging
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message
 
-TOKEN = "YANGI_TOKENNI_SHU_YERGA_QOYING"
+TOKEN = "9237388648:AAGUuyXN-79BJqQzjHR9O-ngoRqGS5a6bOA"
 
 async def main():
     bot = Bot(token=TOKEN)
