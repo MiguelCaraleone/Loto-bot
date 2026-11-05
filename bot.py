@@ -141,7 +141,6 @@ async def cmd_start(message: Message):
         await db.execute("INSERT OR IGNORE INTO users (user_id, role, status) VALUES (?, 'user', 'none')", (message.from_user.id,))
         await db.commit()
         
-    # O'zgartirilgan matn
     text = (
         f"👋 Salom, <b>{message.from_user.first_name}</b>!\n\n"
         f"🃏 Men Joker! Sizni o'z o'yinimga taklif etaman.\n"
@@ -374,6 +373,13 @@ async def duel_answer(callback: CallbackQuery, callback_data: GameCB, bot: Bot):
 async def main():
     await init_db()
     bot = Bot(token=TOKEN)
+    
+    # Telegram'dagi eski tiqilib qolgan xabarlarni tozalash
+    try:
+        await bot.delete_webhook(drop_pending_updates=True)
+    except:
+        pass
+        
     dp = Dispatcher()
     dp.include_router(router)
     print("🤖 Tizim ishga tushdi. Bot to'liq tayyor!")
