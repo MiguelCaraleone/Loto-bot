@@ -18,8 +18,8 @@ DB_PATH = "loto_game.db"
 KARTA_RAQAMI = "9860 3501 4780 2176"
 KARTA_EGASI = "Mamatkulov Izzatillo"
 
-# Joker rasmining to'g'ridan-to'g'ri havolasi (buni o'zingiznikiga almashtiring)
-JOKER_IMG_URL = "https://i.ibb.co/6PZ8Z9x/joker.jpg" # Namuna havola
+# Joker rasmining to'g'ridan-to'g'ri havolasi
+JOKER_IMG_URL = "https://i.ibb.co/RkRvBsHP/file-00000000865082469ff369a93b107407.png"
 
 # --- BAZA VA AVTOMATIK SAVOLLAR ---
 async def init_db():
@@ -85,7 +85,7 @@ async def init_db():
             for q in savollar:
                 await db.execute("INSERT INTO questions (question, opt1, opt2, opt3, opt4, correct_opt) VALUES (?,?,?,?,?,?)", q)
             
-            # Qolgan 960 ta savolni avtomatik to'ldirish (xatosiz)
+            # Qolgan 960 ta savolni avtomatik to'ldirish
             current_count = len(savollar)
             mavzular = ["Geografiya", "Tarix", "Biologiya", "Adabiyot", "Matematika", "Fizika", "Kimyo", "Sport", "San'at"]
             
@@ -151,15 +151,8 @@ async def cmd_start(message: Message):
     )
     
     try:
-        # Rasm bilan yuborish
-        await message.answer_photo(
-            photo=JOKER_IMG_URL, 
-            caption=text, 
-            reply_markup=main_menu(), 
-            parse_mode="HTML"
-        )
-    except Exception as e:
-        # Agar rasm havolasi ishlamasa, oddiy matn yuboradi
+        await message.answer_photo(photo=JOKER_IMG_URL, caption=text, reply_markup=main_menu(), parse_mode="HTML")
+    except Exception:
         await message.answer(text, reply_markup=main_menu(), parse_mode="HTML")
 
 @router.callback_query(F.data == "back_main")
@@ -340,7 +333,7 @@ async def duel_answer(callback: CallbackQuery, callback_data: GameCB, bot: Bot):
         try: await callback.message.edit_text("✅ Siz to'g'ri javob berdingiz va yutdingiz! Admin bilan bog'lanasiz.", reply_markup=main_menu())
         except: pass
     else:
-        # YUTQAZGANLARGA BUTUN EKRANNI QOPLAYDIGAN XABAR
+        # YUTQAZGANLARGA KATTA XABAR
         aqlli_gap = (
             "🚨🚨🚨 <b>DIQQAT!</b> 🚨🚨🚨\n\n"
             "💥💥💥 <b>S  E  N</b> 💥💥💥\n"
@@ -354,17 +347,13 @@ async def duel_answer(callback: CallbackQuery, callback_data: GameCB, bot: Bot):
         try: await callback.message.edit_text(aqlli_gap, reply_markup=main_menu(), parse_mode="HTML")
         except: pass
         
-        # O'yindagi boshqa odamlarga ham xabar berish (agar 4 kishilik bo'lsa)
         async with aiosqlite.connect(DB_PATH) as db:
             cursor = await db.execute("SELECT user_id FROM queues WHERE status = 'playing'")
             playing_users = [r[0] for r in await cursor.fetchall()]
-            
             for p in playing_users:
                 if p != user_id:
-                    try:
-                        await bot.send_message(p, aqlli_gap, parse_mode="HTML")
+                    try: await bot.send_message(p, aqlli_gap, parse_mode="HTML")
                     except: pass
-                    
     await callback.answer()
 
 # --- ISHGA TUSHIRISH ---
