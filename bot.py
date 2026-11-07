@@ -186,9 +186,9 @@ async def youth_check_answer(callback: CallbackQuery, callback_data: GameCB):
     is_correct = str(callback_data.val)[-1] == "1"
     if is_correct:
         text = f"🎉 <b>TABRIKLAYMIZ, SIZ YUTDINGIZ!</b> 🎉\n\n🎁 Yutug'ingiz: <b>15% CHEGIRMA</b>\n\n📍 Urgut tumanidagi 3-umumta'lim maktabi ro'parasidagi <b>Super Mini Market</b>dan xarid qiling.\n\n📸 Chegirmadan foydalanish uchun <b>skrinshot</b> oling!"
-        await callback.message.edit_text(text, reply_markup=main_menu(), parse_mode="HTML")
+        await callback.message.answer(text, reply_markup=main_menu(), parse_mode="HTML")
     else:
-        await callback.message.edit_text(f"❌ <b>Xato javob!</b>\n\n🎰 Senga Jokerning xabari bor, o'qib ko'r:\n<i>\"Bu qovoqni ishlat bolakay!\"</i> 🎃", reply_markup=main_menu(), parse_mode="HTML")
+        await callback.message.answer(f"❌ <b>Xato javob!</b>\n\n🎰 Senga Jokerning xabari bor, o'qib ko'r:\n<i>\"Bu qovoqni ishlat bolakay!\"</i> 🎃", reply_markup=main_menu(), parse_mode="HTML")
     await callback.answer()
 
 # --- KATTALAR BELLASHUVI ---
@@ -209,20 +209,23 @@ async def adult_pay(callback: CallbackQuery, callback_data: GameCB, state: FSMCo
 
 @router.message(F.photo, StateFilter("waiting_for_receipt"))
 async def receive_receipt(message: Message, state: FSMContext, bot: Bot):
-    user_id = message.from_user.id
-    data = await state.get_data()
-    mode = data.get("mode", "pay_2")
-    amount = "12,000" if mode == "pay_2" else "17,000"
-    await state.clear()
-    admin_text = f"🧾 <b>Yangi chek!</b>\n👤 {message.from_user.full_name}\n🆔 <code>{user_id}</code>\n💰 {amount}\n🎮 {'2 kishilik' if mode == 'pay_2' else '4 kishilik'}\n\nTasdiqlaysizmi?"
-    builder = InlineKeyboardBuilder()
-    builder.button(text="✅ Tasdiqlash", callback_data=f"approve_{mode}_{user_id}")
-    builder.button(text="❌ Rad etish", callback_data=f"reject_{user_id}")
-    try: 
+    try:
+        user_id = message.from_user.id
+        data = await state.get_data()
+        mode = data.get("mode", "pay_2")
+        amount = "12,000" if mode == "pay_2" else "17,000"
+        await state.clear()
+        
+        admin_text = f"🧾 <b>Yangi chek!</b>\n👤 {message.from_user.full_name}\n🆔 <code>{user_id}</code>\n💰 {amount}\n🎮 {'2 kishilik' if mode == 'pay_2' else '4 kishilik'}\n\nTasdiqlaysizmi?"
+        builder = InlineKeyboardBuilder()
+        builder.button(text="✅ Tasdiqlash", callback_data=f"approve_{mode}_{user_id}")
+        builder.button(text="❌ Rad etish", callback_data=f"reject_{user_id}")
+        
         await bot.send_photo(ADMIN_ID, message.photo[-1].file_id, caption=admin_text, reply_markup=builder.as_markup(), parse_mode="HTML")
-    except: 
-        pass
-    await message.answer("⏳ Chek adminga yuborildi. Tasdiqlanishini kuting...")
+        await message.answer("⏳ Chek adminga yuborildi. Tasdiqlanishini kuting...")
+    except Exception as e:
+        print(f"Rasm yuborishda xato: {e}")
+        await message.answer("❌ Xatolik yuz berdi. Qaytadan urinib ko'ring.")
 
 @router.callback_query(F.data.startswith("approve_"))
 async def approve_payment(callback: CallbackQuery, bot: Bot):
@@ -232,18 +235,17 @@ async def approve_payment(callback: CallbackQuery, bot: Bot):
         _, mode, user_id = callback.data.split("_")
         user_id = int(user_id)
     except:
-        return await callback.answer("Xato ma'lumot!", show_alert=True)
+        return await callback.answer("Xato!", show_alert=True)
 
-    await callback.answer("Bajarilmoqda...", show_alert=False)
-
+    await callback.answer("Tasdiqlandi!")
+    
     try:
-        await bot.send_message(ADMIN_ID, f"✅ <b>To'lov tasdiqlandi!</b>\nID: <code>{user_id}</code>", parse_mode="HTML")
+        await bot.send_message(ADMIN_ID, f"✅ To'lov tasdiqlandi!\nID: {user_id}")
     except: pass
 
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("INSERT OR REPLACE INTO queues (user_id, mode, status) VALUES (?, ?, 'waiting')", (user_id, mode))
         await db.commit()
-        
         cursor = await db.execute("SELECT user_id FROM queues WHERE mode = ? AND status = 'waiting' LIMIT 4", (mode,))
         waiting_users = [row[0] for row in await cursor.fetchall()]
 
@@ -263,8 +265,7 @@ async def approve_payment(callback: CallbackQuery, bot: Bot):
         prize = 18000 if mode == "pay_2" else 25500 
         
         for p in players:
-            try:
-                await bot.send_message(p, "⚔️ Barcha ishtirokchilar yig'ildi! O'yin boshlanmoqda...")
+            try: await bot.send_message(p, "⚔️ Barcha yig'ildi! O'yin boshlanmoqda...")
             except: pass
                 
         await start_duel(bot, players, "2 kishilik" if mode == "pay_2" else "4 kishilik", prize)
@@ -276,21 +277,16 @@ async def reject_payment(callback: CallbackQuery, bot: Bot):
     try:
         rejected_user_id = int(callback.data.split("_")[1])
     except:
-        return await callback.answer("Xato ma'lumot!", show_alert=True)
+        return await callback.answer("Xato!", show_alert=True)
     
-    await callback.answer("Bekor qilindi", show_alert=False)
+    await callback.answer("Rad etildi!")
     
     try:
         await bot.send_message(ADMIN_ID, f"❌ To'lov rad etildi. (ID: {rejected_user_id})")
     except: pass
     
     try:
-        await bot.send_message(
-            rejected_user_id, 
-            "❌ <b>Afsuski, to'lovingiz admin tomonidan rad etildi yoki chek noto'g'ri yuborilgan.</b>\n\n"
-            "Iltimos, to'lovni qaytadan amalga oshirib, chekni botga qayta yuboring.", 
-            parse_mode="HTML"
-        )
+        await bot.send_message(rejected_user_id, "❌ <b>Afsuski, chekingiz rad etildi.</b>\n\nIltimos, to'lovni qaytadan amalga oshirib, chekni botga qayta yuboring.", parse_mode="HTML")
     except: pass
 
 async def start_duel(bot: Bot, players: list, duel_type: str, prize: int):
@@ -310,13 +306,11 @@ async def start_duel(bot: Bot, players: list, duel_type: str, prize: int):
         builder.button(text=opt, callback_data=GameCB(action="duel_answer", val=int(f"{duel_id}{is_correct}")).pack())
     builder.adjust(2)
     
-    text = f"⚔️ <b>BELLASHUV BOSHLANDI!</b> ⚔️\n({duel_type} o'yini)\n\nKim birinchi bo'lib to'g'ri javobni bosadi, o'sha <b>{prize:,} so'm</b> yutadi!\n\n❓ <b>SAVOL:</b> {q['question']}"
+    text = f"⚔️ <b>BELLASHUV BOSHLANDI!</b> ⚔️\n({duel_type})\n\nKim birinchi bossa, <b>{prize:,} so'm</b> yutadi!\n\n❓ <b>SAVOL:</b> {q['question']}"
     
     for player in players:
-        try: 
-            await bot.send_message(player, text, reply_markup=builder.as_markup(), parse_mode="HTML")
-        except: 
-            pass
+        try: await bot.send_message(player, text, reply_markup=builder.as_markup(), parse_mode="HTML")
+        except: pass
 
 @router.callback_query(GameCB.filter(F.action == "duel_answer"))
 async def duel_answer(callback: CallbackQuery, callback_data: GameCB, bot: Bot):
@@ -340,12 +334,11 @@ async def duel_answer(callback: CallbackQuery, callback_data: GameCB, bot: Bot):
                 prize = 18000
         
         try:
-            await bot.send_message(user_id, f"🎉 <b>TABRIKLAYMIZ, SIZ YUTDINGIZ!</b> 🎉\n\nSiz raqiblaringizni tezroq yutdingiz va <b>{prize:,} so'mni</b> qo'lga kiritdingiz!\n\nAdmin pulni o'tkazishi uchun karta raqamingizni yuboring:")
+            await bot.send_message(user_id, f"🎉 <b>TABRIKLAYMIZ, SIZ YUTDINGIZ!</b> 🎉\n\nSiz <b>{prize:,} so'mni</b> qo'lga kiritdingiz!\n\nAdmin pul o'tkazishi uchun karta raqamingizni yuboring:")
             await bot.send_message(ADMIN_ID, f"⚔️ <b>Bellashuv yakunlandi!</b>\n🏆 G'olib ID: <code>{user_id}</code>\n💰 Yutuq: {prize:,} so'm\n\nG'olibdan karta raqamini so'rang!")
         except: pass
         
-        try: 
-            await callback.message.edit_text("✅ Siz to'g'ri javob berdingiz va yutdingiz! Admin bilan bog'lanasiz.", reply_markup=main_menu())
+        try: await callback.message.answer("✅ Siz to'g'ri javob berdingiz va yutdingiz!", reply_markup=main_menu())
         except: pass
     else:
         aqlli_gap = (
@@ -358,8 +351,7 @@ async def duel_answer(callback: CallbackQuery, callback_data: GameCB, bot: Bot):
             "Raqibingiz sizdan ancha tezroq va aqlliroq bo'lib chiqdi.\n"
             "Miyangizni ishlatib ko'ring! 🧠🤡"
         )
-        try: 
-            await callback.message.edit_text(aqlli_gap, reply_markup=main_menu(), parse_mode="HTML")
+        try: await callback.message.answer(aqlli_gap, reply_markup=main_menu(), parse_mode="HTML")
         except: pass
         
         async with aiosqlite.connect(DB_PATH) as db:
