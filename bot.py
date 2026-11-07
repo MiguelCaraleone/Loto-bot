@@ -30,7 +30,6 @@ class GameStates(StatesGroup):
 # 📚 7 TA FAN BO'YICHA AVTOMATIK SAVOL GENERATORI BAZASI
 # =========================================================================
 
-# 1. ADABIYOT (Asar -> Muallif)
 ADABIYOT_DATA = [
     ("«O'tkan kunlar» romani", "Abdulla Qodiriy"),
     ("«Mehrobdan chayon» romani", "Abdulla Qodiriy"),
@@ -64,7 +63,6 @@ ADABIYOT_DATA = [
     ("«Me'mor» romani", "Mirmuhsin")
 ]
 
-# 2. TARIX (Voqea -> Sana yoki Shaxs)
 TARIX_SANALAR = [
     ("Amir Temur tavallud topgan yil", "1336-yil"),
     ("Zahiriddin Muhammad Bobur tug'ilgan yil", "1483-yil"),
@@ -85,7 +83,6 @@ TARIX_SANALAR = [
     ("Spitamen qo'zg'oloni boshlangan davr", "Mil. avv. 329-yil")
 ]
 
-# 3. BIOLOGIYA (Savol -> Javob)
 BIOLOGIYA_DATA = [
     ("Hujayraning energiya stansiyasi qaysi organoid hisoblanadi?", "Mitoxondriya"),
     ("O'simlik bargiga yashil rang beruvchi plastida qaysi?", "Xloroplast"),
@@ -106,7 +103,6 @@ BIOLOGIYA_DATA = [
     ("Qushlarni o'rganuvchi zoologiya bo'limi?", "Ornitologiya")
 ]
 
-# 4. ONA TILI (Savol -> To'g'ri javob va Xato variantlar)
 ONA_TILI_DATA = [
     ("Ona tili: Qaysi qatorda so'z to'g'ri yozilgan?", "Taassurot", "Tassurot", "Taasurot", "Tasurot"),
     ("Ona tili: Qaysi so'z imlo qoidasiga ko'ra to'g'ri yozilgan?", "Munosabat", "Munosobat", "Munasabat", "Munozabat"),
@@ -123,7 +119,6 @@ ONA_TILI_DATA = [
     ("Ona tili: «Qanday? Qanaqa?» so'roqlariga javob bo'luvchi gap bo'lagi?", "Sifatlovchi aniqlovchi", "To'ldiruvchi", "Ega", "Kesim")
 ]
 
-# 5. HUQUQ (Savol -> To'g'ri javob va Xato variantlar)
 HUQUQ_DATA = [
     ("Huquq: Yangi tahrirdagi O'zbekiston Konstitutsiyasi nechta bob va moddadan iborat?", "6 bo'lim, 27 bob, 155 modda", "6 bo'lim, 26 bob, 128 modda", "5 bo'lim, 25 bob, 150 modda", "7 bo'lim, 30 bob, 160 modda"),
     ("Huquq: Yangi tahrirdagi O'zbekiston Konstitutsiyasi qachon referendumda qabul qilindi?", "2023-yil 30-aprel", "2022-yil 8-dekabr", "2021-yil 1-sentabr", "2024-yil 1-yanvar"),
@@ -139,12 +134,10 @@ HUQUQ_DATA = [
 ]
 
 def generate_multi_subject_question():
-    """7 ta fandan (Matematika, Fizika, Adabiyot, Tarix, Biologiya, Ona tili, Huquq) tasodifiy savol tuzuvchi funksiya"""
     subject = random.choice(["matematika", "fizika", "adabiyot", "tarix", "biologiya", "ona_tili", "huquq"])
 
-    # 1. MATEMATIKA (Dinamik hisoblash)
     if subject == "matematika":
-        turi = random.choice(["ko'paytirish", "qo'shish_ayirish", "kvadrat", " tenglama"])
+        turi = random.choice(["ko'paytirish", "qo'shish_ayirish", "kvadrat", "tenglama"])
         if turi == "ko'paytirish":
             a, b, c = random.randint(6, 18), random.randint(4, 14), random.randint(10, 50)
             ans = a * b + c
@@ -173,7 +166,6 @@ def generate_multi_subject_question():
         w_list = list(wrongs)
         return {"question": question, "opt1": str(ans), "opt2": w_list[0], "opt3": w_list[1], "opt4": w_list[2], "correct_opt": 1}
 
-    # 2. FIZIKA (Dinamik masalalar)
     elif subject == "fizika":
         turi = random.choice(["tezlik", "kuch", "om_qonuni", "quvvat"])
         if turi == "tezlik":
@@ -207,7 +199,6 @@ def generate_multi_subject_question():
 
         return {"question": question, "opt1": ans, "opt2": wrongs[0], "opt3": wrongs[1], "opt4": wrongs[2], "correct_opt": 1}
 
-    # 3. ADABIYOT (Kombinatsion generator)
     elif subject == "adabiyot":
         work, author = random.choice(ADABIYOT_DATA)
         all_authors = list({a for _, a in ADABIYOT_DATA if a != author})
@@ -215,7 +206,6 @@ def generate_multi_subject_question():
         question = f"📚 Adabiyot: Mashhur {work} muallifi kim?"
         return {"question": question, "opt1": author, "opt2": wrongs[0], "opt3": wrongs[1], "opt4": wrongs[2], "correct_opt": 1}
 
-    # 4. TARIX (Kombinatsion generator)
     elif subject == "tarix":
         event, date_ans = random.choice(TARIX_SANALAR)
         all_dates = list({d for _, d in TARIX_SANALAR if d != date_ans})
@@ -223,7 +213,6 @@ def generate_multi_subject_question():
         question = f"🏛 Tarix: {event} qaysi qatorda to'g'ri ko'rsatilgan?"
         return {"question": question, "opt1": date_ans, "opt2": wrongs[0], "opt3": wrongs[1], "opt4": wrongs[2], "correct_opt": 1}
 
-    # 5. BIOLOGIYA (Kombinatsion generator)
     elif subject == "biologiya":
         q_text, ans = random.choice(BIOLOGIYA_DATA)
         all_ans = list({a for _, a in BIOLOGIYA_DATA if a != ans})
@@ -231,18 +220,16 @@ def generate_multi_subject_question():
         question = f"🧬 Biologiya: {q_text}"
         return {"question": question, "opt1": ans, "opt2": wrongs[0], "opt3": wrongs[1], "opt4": wrongs[2], "correct_opt": 1}
 
-    # 6. ONA TILI
     elif subject == "ona_tili":
         q_text, opt1, opt2, opt3, opt4 = random.choice(ONA_TILI_DATA)
         return {"question": f"📝 {q_text}", "opt1": opt1, "opt2": opt2, "opt3": opt3, "opt4": opt4, "correct_opt": 1}
 
-    # 7. HUQUQ
     else:
         q_text, opt1, opt2, opt3, opt4 = random.choice(HUQUQ_DATA)
         return {"question": f"⚖️ {q_text}", "opt1": opt1, "opt2": opt2, "opt3": opt3, "opt4": opt4, "correct_opt": 1}
 
 
-# --- BAZA VA BOSHLANG'ICH SAVOLLAR ---
+# --- BAZA VA AVTOMATIK MIGRATSIYA ---
 async def init_db():
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("""CREATE TABLE IF NOT EXISTS questions 
@@ -253,6 +240,13 @@ async def init_db():
             (user_id INTEGER PRIMARY KEY, mode TEXT, status TEXT DEFAULT 'waiting', duel_id INTEGER DEFAULT 0)""")
         await db.execute("""CREATE TABLE IF NOT EXISTS user_seen_questions 
             (user_id INTEGER, question_id INTEGER, PRIMARY KEY (user_id, question_id))""")
+        
+        # MUHIM TUZATISH: Agar eski bazada duel_id ustuni bo'lmasa, avtomatik qo'shamiz
+        try:
+            await db.execute("ALTER TABLE queues ADD COLUMN duel_id INTEGER DEFAULT 0")
+        except Exception:
+            pass
+            
         await db.commit()
 
         cursor = await db.execute("SELECT COUNT(*) FROM questions")
@@ -276,7 +270,6 @@ async def init_db():
                 ("⚖️ Huquq: Bola huquqlari to'g'risidagi konvensiya bo'yicha kim bola hisoblanadi?", "18 yoshga to'lmagan har qanday inson", "16 yoshgacha bo'lganlar", "14 yoshgacha bo'lganlar", "Maktab o'quvchilari", 1),
                 ("📝 Ona tili: Fe'lning nechta zamon shakli bor?", "3 ta (o'tgan, hozirgi, kelasi)", "2 ta", "4 ta", "5 ta", 1)
             ]
-            # Boshlang'ich bazani yanada boyitish uchun dinamik generatordan ham 60 ta savol qo'shamiz
             for _ in range(60):
                 dq = generate_multi_subject_question()
                 savollar.append((dq["question"], dq["opt1"], dq["opt2"], dq["opt3"], dq["opt4"], 1))
@@ -288,11 +281,6 @@ async def init_db():
 
 
 async def get_fresh_question(user_ids: list):
-    """
-    Har safar 7 ta fandan yangi savol tuzib bazani boyitib boradi 
-    va foydalanuvchi hali ko'rmagan savolni qaytaradi.
-    """
-    # Har o'yinda yangi kombinatsiyali savol yaratib bazaga ham qo'shib boramiz (baza o'z-o'zidan kengayadi)
     new_gen_q = generate_multi_subject_question()
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute(
@@ -301,11 +289,9 @@ async def get_fresh_question(user_ids: list):
         )
         await db.commit()
 
-        # 40% holatda hozirgina generatsiya qilingan yangi savolni to'g'ridan-to'g'ri beramiz
         if random.random() < 0.40:
             return new_gen_q
 
-        # 60% holatda bazadan shu o'yinchilar hali ko'rmagan savolni olamiz
         db.row_factory = aiosqlite.Row
         placeholders = ",".join("?" * len(user_ids))
         query = f"""
@@ -318,7 +304,6 @@ async def get_fresh_question(user_ids: list):
         cursor = await db.execute(query, user_ids)
         q = await cursor.fetchone()
 
-        # Agar barcha savollarni ko'rib bo'lgan bo'lsa, tarixini tozalaymiz
         if not q:
             await db.execute(f"DELETE FROM user_seen_questions WHERE user_id IN ({placeholders})", user_ids)
             await db.commit()
@@ -439,7 +424,10 @@ async def admin_stats(callback: CallbackQuery):
         f"👥 Foydalanuvchilar: <b>{u_count} ta</b>\n"
         f"⏳ Navbatda kutayotganlar: <b>{w_count} ta</b>"
     )
-    await callback.message.edit_text(text, reply_markup=admin_menu_kb(), parse_mode="HTML")
+    try:
+        await callback.message.edit_text(text, reply_markup=admin_menu_kb(), parse_mode="HTML")
+    except Exception:
+        pass
     await callback.answer()
 
 @router.callback_query(F.data == "admin_reset_seen")
@@ -574,7 +562,7 @@ async def youth_check_answer(callback: CallbackQuery, callback_data: GameCB):
     if is_correct:
         text = (
             "🎉 <b>TABRIKLAYMIZ, SIZ YUTDINGIZ!</b> 🎉\n\n"
-            "🎁 Yutug'ingiz: <b>5% CHEGIRMA</b>\n\n"
+            "🎁 Yutug'ingiz: <b>15% CHEGIRMA</b>\n\n"
             "📍 Urgut tumanidagi 3-umumta'lim maktabi ro'parasidagi <b>Super Mini Market</b>dan xarid qiling.\n\n"
             "📸 Chegirmadan foydalanish uchun <b>skrinshot</b> oling!"
         )
@@ -633,63 +621,98 @@ async def receive_receipt(message: Message, state: FSMContext, bot: Bot):
         print(f"Rasm yuborishda xato: {e}")
         await message.answer("❌ Xatolik yuz berdi. Qaytadan urinib ko'ring.")
 
-@router.callback_query(F.data.startswith("approve:"))
+# UNIVERSAL TASDIQLASH HANDLERI (Eski '_' va yangi ':' formatlarini ham xatosiz o'qiydi)
+@router.callback_query(F.data.startswith("approve"))
 async def approve_payment(callback: CallbackQuery, bot: Bot):
     if callback.from_user.id != ADMIN_ID:
-        return
+        return await callback.answer("Siz admin emassiz!", show_alert=True)
     
+    data_str = callback.data
     try:
-        _, mode, user_id = callback.data.split(":")
-        user_id = int(user_id)
-    except Exception:
-        return await callback.answer("Xato ma'lumot!", show_alert=True)
+        if ":" in data_str:
+            # Yangi format: approve:pay_2:12345678
+            _, mode, user_id_str = data_str.split(":")
+            user_id = int(user_id_str)
+        else:
+            # Eski format: approve_pay_2_12345678
+            # rsplit('_', 1) eng oxirgi '_' belgisidan bo'ladi va ID ni aniq ajratib oladi
+            prefix_and_mode, user_id_str = data_str.rsplit("_", 1)
+            mode = prefix_and_mode.replace("approve_", "")
+            user_id = int(user_id_str)
+    except Exception as e:
+        print(f"Approve parse error: {e} | data: {data_str}")
+        return await callback.answer(f"Xato ma'lumot: {data_str}", show_alert=True)
 
-    await callback.answer("Tasdiqlandi!")
-    await callback.message.edit_caption(caption=callback.message.caption + "\n\n✅ <b>TASDIQLANDI</b>", parse_mode="HTML")
-
-    async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute("INSERT OR REPLACE INTO queues (user_id, mode, status, duel_id) VALUES (?, ?, 'waiting', 0)", (user_id, mode))
-        await db.commit()
-        cursor = await db.execute("SELECT user_id FROM queues WHERE mode = ? AND status = 'waiting' LIMIT 4", (mode,))
-        waiting_users = [row[0] for row in await cursor.fetchall()]
-
-    required_count = 2 if mode == "pay_2" else 4
+    await callback.answer("✅ To'lov tasdiqlandi!")
     
-    if len(waiting_users) < required_count:
-        try: 
-            await bot.send_message(user_id, f"✅ To'lov tasdiqlandi! Navbatga qo'shildingiz ({len(waiting_users)}/{required_count}). Raqiblaringizni kuting...")
-        except Exception:
-            pass
-    else:
-        players = waiting_users[:required_count]
-        duel_id = random.randint(1000, 9999)
+    # Xabardagi tugmalarni olib tashlab, TASDIQLANDI deb yozib qo'yamiz
+    try:
+        old_caption = callback.message.caption or "🧾 Chek"
+        await callback.message.edit_caption(caption=old_caption + "\n\n✅ <b>TASDIQLANDI</b>", parse_mode="HTML", reply_markup=None)
+    except Exception as e:
+        print(f"Caption edit error: {e}")
+
+    try:
         async with aiosqlite.connect(DB_PATH) as db:
-            for p in players:
-                await db.execute("UPDATE queues SET status = 'playing', duel_id = ? WHERE user_id = ?", (duel_id, p))
-            await db.commit()
-            
-        prize = 18000 if mode == "pay_2" else 25500 
-        
-        for p in players:
+            # Agar eski bazada duel_id ustuni yo'q bo'lsa ham xato bermasligi uchun tekshiramiz
             try:
-                await bot.send_message(p, "⚔️ Barcha yig'ildi! O'yin boshlanmoqda...")
+                await db.execute("ALTER TABLE queues ADD COLUMN duel_id INTEGER DEFAULT 0")
             except Exception:
                 pass
-                
-        await start_duel(bot, players, "2 kishilik" if mode == "pay_2" else "4 kishilik", prize, duel_id)
+            await db.execute("INSERT OR REPLACE INTO queues (user_id, mode, status, duel_id) VALUES (?, ?, 'waiting', 0)", (user_id, mode))
+            await db.commit()
+            cursor = await db.execute("SELECT user_id FROM queues WHERE mode = ? AND status = 'waiting' LIMIT 4", (mode,))
+            waiting_users = [row[0] for row in await cursor.fetchall()]
 
-@router.callback_query(F.data.startswith("reject:"))
+        required_count = 2 if mode == "pay_2" else 4
+        
+        if len(waiting_users) < required_count:
+            try: 
+                await bot.send_message(user_id, f"✅ To'lov tasdiqlandi! Navbatga qo'shildingiz ({len(waiting_users)}/{required_count}). Raqiblaringizni kuting...")
+            except Exception:
+                pass
+        else:
+            players = waiting_users[:required_count]
+            duel_id = random.randint(1000, 9999)
+            async with aiosqlite.connect(DB_PATH) as db:
+                for p in players:
+                    await db.execute("UPDATE queues SET status = 'playing', duel_id = ? WHERE user_id = ?", (duel_id, p))
+                await db.commit()
+                
+            prize = 18000 if mode == "pay_2" else 25500 
+            
+            for p in players:
+                try:
+                    await bot.send_message(p, "⚔️ Barcha yig'ildi! O'yin boshlanmoqda...")
+                except Exception:
+                    pass
+                    
+            await start_duel(bot, players, "2 kishilik" if mode == "pay_2" else "4 kishilik", prize, duel_id)
+    except Exception as e:
+        print(f"Database/Duel error in approve: {e}")
+        await bot.send_message(ADMIN_ID, f"⚠️ Bazada xatolik yuz berdi: {e}")
+
+# UNIVERSAL RAD ETISH HANDLERI (Eski '_' va yangi ':' formatlari uchun)
+@router.callback_query(F.data.startswith("reject"))
 async def reject_payment(callback: CallbackQuery, bot: Bot):
     if callback.from_user.id != ADMIN_ID:
-        return
+        return await callback.answer("Siz admin emassiz!", show_alert=True)
     
+    data_str = callback.data
     try:
-        rejected_user_id = int(callback.data.split(":")[1])
-    except Exception:
-        return await callback.answer("Xato!", show_alert=True)
+        if ":" in data_str:
+            rejected_user_id = int(data_str.split(":")[1])
+        else:
+            rejected_user_id = int(data_str.rsplit("_", 1)[1])
+    except Exception as e:
+        return await callback.answer(f"Xato: {e}", show_alert=True)
     
-    await callback.answer("Rad etildi!")
-    await callback.message.edit_caption(caption=callback.message.caption + "\n\n❌ <b>RAD ETILDI</b>", parse_mode="HTML")
+    await callback.answer("❌ Rad etildi!")
+    try:
+        old_caption = callback.message.caption or "🧾 Chek"
+        await callback.message.edit_caption(caption=old_caption + "\n\n❌ <b>RAD ETILDI</b>", parse_mode="HTML", reply_markup=None)
+    except Exception:
+        pass
     
     try:
         await bot.send_message(
@@ -829,7 +852,7 @@ async def main():
         pass
     dp = Dispatcher()
     dp.include_router(router)
-    print("🤖 Tizim ishga tushdi. 7 ta fan generatori faol!")
+    print("🤖 Tizim ishga tushdi. To'lov tasdiqlash tizimi va 7 ta fan generatori faol!")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
