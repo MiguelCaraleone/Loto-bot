@@ -12,14 +12,14 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.filters.callback_data import CallbackData
 
 # --- SOZLAMALAR ---
-TOKEN = os.getenv("BOT_TOKEN", "9237388648:AAHqC1UHqbkMUFwEIW-vE59Oj990Zp2Ar4w")  
+TOKEN = os.getenv("BOT_TOKEN", "9237388648:AAHqC1UHqbkMUFwEIW-vE59Oj990Zp2Ar4w") 
 ADMIN_ID = 1302845749
 DB_PATH = "loto_game.db"
 KARTA_RAQAMI = "9860 3501 4780 2176"
 KARTA_EGASI = "Mamatkulov Izzatillo"
 JOKER_IMG_URL = "https://i.ibb.co/RkRvBsHP/file-00000000865082469ff369a93b107407.png"
 
-# --- BAZA VA SAVOLLAR (50 TA TAYYOR) ---
+# --- BAZA VA SAVOLLAR ---
 async def init_db():
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("""CREATE TABLE IF NOT EXISTS questions 
@@ -141,15 +141,15 @@ async def cmd_start(message: Message):
 
 @router.callback_query(F.data == "back_main")
 async def back_main(callback: CallbackQuery):
-    try: await callback.message.edit_text("Asosiy menyu:", reply_markup=main_menu())
-    except: pass
+    await callback.message.delete()
+    await callback.message.answer("Asosiy menyu:", reply_markup=main_menu())
     await callback.answer()
 
 # --- YOSHLAR O'YINI ---
 @router.callback_query(GameCB.filter(F.action == "youth_start"))
 async def youth_start(callback: CallbackQuery):
-    try: await callback.message.edit_text("🎯 <b>Kartani tanlang!</b>", reply_markup=get_cards(), parse_mode="HTML")
-    except: pass
+    await callback.message.delete()
+    await callback.message.answer("🎯 <b>Kartani tanlang!</b>", reply_markup=get_cards(), parse_mode="HTML")
     await callback.answer()
 
 @router.callback_query(GameCB.filter(F.action == "open_card"))
@@ -170,10 +170,10 @@ async def open_card(callback: CallbackQuery, callback_data: GameCB):
     builder.adjust(2)
     
     text = f"❓ <b>SAVOL:</b> {q['question']}\n\n⏳ Javob berish uchun 15 soniya vaqt:"
-    try: await callback.message.edit_text(text, reply_markup=builder.as_markup(), parse_mode="HTML")
-    except: pass
+    await callback.message.delete()
+    msg = await callback.message.answer(text, reply_markup=builder.as_markup(), parse_mode="HTML")
     
-    asyncio.create_task(youth_timeout(callback.message, callback.from_user.id))
+    asyncio.create_task(youth_timeout(msg, callback.from_user.id))
 
 async def youth_timeout(message: Message, user_id: int):
     await asyncio.sleep(15.0)
@@ -189,18 +189,16 @@ async def youth_check_answer(callback: CallbackQuery, callback_data: GameCB):
     is_correct = str(callback_data.val)[-1] == "1"
     if is_correct:
         text = f"🎉 <b>TABRIKLAYMIZ, SIZ YUTDINGIZ!</b> 🎉\n\n🎁 Yutug'ingiz: <b>15% CHEGIRMA</b>\n\n📍 Urgut tumanidagi 3-umumta'lim maktabi ro'parasidagi <b>Super Mini Market</b>dan xarid qiling.\n\n📸 Chegirmadan foydalanish uchun <b>skrinshot</b> oling!"
-        try: await callback.message.edit_text(text, reply_markup=main_menu(), parse_mode="HTML")
-        except: pass
+        await callback.message.edit_text(text, reply_markup=main_menu(), parse_mode="HTML")
     else:
-        try: await callback.message.edit_text(f"❌ <b>Xato javob!</b>\n\n🎰 Senga Jokerning xabari bor, o'qib ko'r:\n<i>\"Bu qovoqni ishlat bolakay!\"</i> 🎃", reply_markup=main_menu(), parse_mode="HTML")
-        except: pass
+        await callback.message.edit_text(f"❌ <b>Xato javob!</b>\n\n🎰 Senga Jokerning xabari bor, o'qib ko'r:\n<i>\"Bu qovoqni ishlat bolakay!\"</i> 🎃", reply_markup=main_menu(), parse_mode="HTML")
     await callback.answer()
 
 # --- KATTALAR BELLASHUVI ---
 @router.callback_query(GameCB.filter(F.action == "adult_menu"))
 async def adult_menu_handler(callback: CallbackQuery):
-    try: await callback.message.edit_text("👨 <b>Kattalar uchun bellashuv turini tanlang:</b>", reply_markup=adult_menu(), parse_mode="HTML")
-    except: pass
+    await callback.message.delete()
+    await callback.message.answer("👨 <b>Kattalar uchun bellashuv turini tanlang:</b>", reply_markup=adult_menu(), parse_mode="HTML")
     await callback.answer()
 
 @router.callback_query(GameCB.filter(F.action.in_({"pay_2", "pay_4"})))
@@ -209,8 +207,8 @@ async def adult_pay(callback: CallbackQuery, callback_data: GameCB, state: FSMCo
     amount = "12,000" if mode == "pay_2" else "17,000"
     await state.update_data(mode=mode)
     text = f"💳 <b>To'lov ({amount} so'm)</b>\n\nTo'lovni kartaga o'tkazing:\n<code>{KARTA_RAQAMI}</code>\n<b>{KARTA_EGASI}</b>\n\n📸 Chek skrinshotini shu yerga yuboring."
-    try: await callback.message.edit_text(text, parse_mode="HTML")
-    except: pass
+    await callback.message.delete()
+    await callback.message.answer(text, parse_mode="HTML")
     await state.set_state("waiting_for_receipt")
     await callback.answer()
 
@@ -341,6 +339,10 @@ async def duel_answer(callback: CallbackQuery, callback_data: GameCB, bot: Bot):
 
 # --- ISHGA TUSHIRISH ---
 async def main():
+    # Eski bazani o'chirish (har safar toza boshlanishi uchun)
+    if os.path.exists(DB_PATH):
+        os.remove(DB_PATH)
+        
     await init_db()
     bot = Bot(token=TOKEN)
     try: await bot.delete_webhook(drop_pending_updates=True)
