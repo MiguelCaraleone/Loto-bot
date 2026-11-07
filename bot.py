@@ -17,11 +17,9 @@ ADMIN_ID = 1302845749
 DB_PATH = "loto_game.db"
 KARTA_RAQAMI = "9860 3501 4780 2176"
 KARTA_EGASI = "Mamatkulov Izzatillo"
-
-# Joker rasmi (to'g'ridan-to'g'ri havola)
 JOKER_IMG_URL = "https://i.ibb.co/RkRvBsHP/file-00000000865082469ff369a93b107407.png"
 
-# --- BAZA VA AVTOMATIK SAVOLLAR ---
+# --- BAZA VA SAVOLLAR (50 TA TAYYOR) ---
 async def init_db():
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("""CREATE TABLE IF NOT EXISTS questions 
@@ -35,8 +33,8 @@ async def init_db():
         cursor = await db.execute("SELECT COUNT(*) FROM questions")
         count = (await cursor.fetchone())[0]
 
-        if count < 1000:
-            print("⏳ 1000 ta savol bazaga yozilmoqda...")
+        if count == 0:
+            print("⏳ 50 ta tayyor savol bazaga yozilmoqda...")
             savollar = [
                 ("O'zbekistonning poytaxti qaysi shahar?", "Toshkent", "Samarqand", "Buxoro", "Namangan", 1),
                 ("Dunyodagi eng baland tog' qaysi?", "Everest", "Elbrus", "Kilimanjaro", "Montblan", 1),
@@ -77,28 +75,21 @@ async def init_db():
                 ("Qaysi hayvon eng zaharli?", "Kubomeduza", "Ilon", "Chayon", "O'rgimchak", 1),
                 ("Dunyodagi eng chuqur joy qaysi?", "Mariana cho'kmasi", "Temza", "Hind okeani", "Atlantika", 1),
                 ("Eng ko'p ishlatiladigan dasturlash tili (2023)?", "Python", "Java", "C++", "JavaScript", 1),
-                ("O'zbekistonning eng baland nuqtasi?", "Hazrat Sulton", "Beshtor", "Chimyon", "Tyan-Shan", 1)
+                ("O'zbekistonning eng baland nuqtasi?", "Hazrat Sulton", "Beshtor", "Chimyon", "Tyan-Shan", 1),
+                ("Eng katta sayyora qaysi?", "Yupiter", "Saturn", "Neptun", "Yer", 1),
+                ("O'zbekiston bayrog'ida nechta yulduz bor?", "12", "11", "10", "9", 1),
+                ("Eng qadimgi tsivilizatsiya qaysi?", "Misr", "Rim", "Yunon", "Xitoy", 1),
+                ("Qaysi yilda internet ixtiro qilindi?", "1969", "1980", "1995", "2000", 1),
+                ("Dunyoda eng ko'p sotilgan kitob qaysi?", "Bibliya", "Qur'on", "Ginnes", "Don Kixot", 1),
+                ("Qaysi sayyora Quyoshga eng yaqin?", "Merkuriy", "Venera", "Yer", "Mars", 1),
+                ("Inson qon guruhi nechta asosiy turga bo'linadi?", "4", "3", "5", "6", 1),
+                ("Eng qadimgi universitet qayerda?", "Bolonya", "Oksford", "Kembrij", "Sorbonna", 1),
+                ("Eng katta orol qaysi?", "Grenlandiya", "Madagaskar", "Borneo", "Yangi Gvineya", 1)
             ]
-            
             for q in savollar:
                 await db.execute("INSERT INTO questions (question, opt1, opt2, opt3, opt4, correct_opt) VALUES (?,?,?,?,?,?)", q)
-            
-            current_count = len(savollar)
-            mavzular = ["Geografiya", "Tarix", "Biologiya", "Adabiyot", "Matematika", "Fizika", "Kimyo", "Sport", "San'at"]
-            
-            while current_count < 1000:
-                mavzu = random.choice(mavzular)
-                num = random.randint(1, 1000)
-                savol_text = f"{mavzu} bo'yicha {num}-savol qaysi?"
-                togri_javob = f"To'g'ri javob {num}"
-                opts = [togri_javob, f"Xato variant 1", f"Xato variant 2", f"Xato variant 3"]
-                random.shuffle(opts)
-                correct = opts.index(togri_javob) + 1
-                await db.execute("INSERT INTO questions (question, opt1, opt2, opt3, opt4, correct_opt) VALUES (?,?,?,?,?,?)",
-                                 (savol_text, opts[0], opts[1], opts[2], opts[3], correct))
-                current_count += 1
             await db.commit()
-            print("✅ 1000 ta savol bazaga muvaffaqiyatli yozildi!")
+            print("✅ Savollar yozildi!")
 
 # --- KLAVIATURALAR ---
 class GameCB(CallbackData, prefix="gm"):
