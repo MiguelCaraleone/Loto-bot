@@ -141,14 +141,16 @@ async def cmd_start(message: Message):
 
 @router.callback_query(F.data == "back_main")
 async def back_main(callback: CallbackQuery):
-    await callback.message.delete()
+    try: await callback.message.delete()
+    except: pass
     await callback.message.answer("Asosiy menyu:", reply_markup=main_menu())
     await callback.answer()
 
 # --- YOSHLAR O'YINI ---
 @router.callback_query(GameCB.filter(F.action == "youth_start"))
 async def youth_start(callback: CallbackQuery):
-    await callback.message.delete()
+    try: await callback.message.delete()
+    except: pass
     await callback.message.answer("🎯 <b>Kartani tanlang!</b>", reply_markup=get_cards(), parse_mode="HTML")
     await callback.answer()
 
@@ -170,7 +172,8 @@ async def open_card(callback: CallbackQuery, callback_data: GameCB):
     builder.adjust(2)
     
     text = f"❓ <b>SAVOL:</b> {q['question']}\n\n⏳ Javob berish uchun 15 soniya vaqt:"
-    await callback.message.delete()
+    try: await callback.message.delete()
+    except: pass
     msg = await callback.message.answer(text, reply_markup=builder.as_markup(), parse_mode="HTML")
     
     asyncio.create_task(youth_timeout(msg, callback.from_user.id))
@@ -189,15 +192,18 @@ async def youth_check_answer(callback: CallbackQuery, callback_data: GameCB):
     is_correct = str(callback_data.val)[-1] == "1"
     if is_correct:
         text = f"🎉 <b>TABRIKLAYMIZ, SIZ YUTDINGIZ!</b> 🎉\n\n🎁 Yutug'ingiz: <b>15% CHEGIRMA</b>\n\n📍 Urgut tumanidagi 3-umumta'lim maktabi ro'parasidagi <b>Super Mini Market</b>dan xarid qiling.\n\n📸 Chegirmadan foydalanish uchun <b>skrinshot</b> oling!"
-        await callback.message.edit_text(text, reply_markup=main_menu(), parse_mode="HTML")
+        try: await callback.message.edit_text(text, reply_markup=main_menu(), parse_mode="HTML")
+        except: pass
     else:
-        await callback.message.edit_text(f"❌ <b>Xato javob!</b>\n\n🎰 Senga Jokerning xabari bor, o'qib ko'r:\n<i>\"Bu qovoqni ishlat bolakay!\"</i> 🎃", reply_markup=main_menu(), parse_mode="HTML")
+        try: await callback.message.edit_text(f"❌ <b>Xato javob!</b>\n\n🎰 Senga Jokerning xabari bor, o'qib ko'r:\n<i>\"Bu qovoqni ishlat bolakay!\"</i> 🎃", reply_markup=main_menu(), parse_mode="HTML")
+        except: pass
     await callback.answer()
 
 # --- KATTALAR BELLASHUVI ---
 @router.callback_query(GameCB.filter(F.action == "adult_menu"))
 async def adult_menu_handler(callback: CallbackQuery):
-    await callback.message.delete()
+    try: await callback.message.delete()
+    except: pass
     await callback.message.answer("👨 <b>Kattalar uchun bellashuv turini tanlang:</b>", reply_markup=adult_menu(), parse_mode="HTML")
     await callback.answer()
 
@@ -207,7 +213,8 @@ async def adult_pay(callback: CallbackQuery, callback_data: GameCB, state: FSMCo
     amount = "12,000" if mode == "pay_2" else "17,000"
     await state.update_data(mode=mode)
     text = f"💳 <b>To'lov ({amount} so'm)</b>\n\nTo'lovni kartaga o'tkazing:\n<code>{KARTA_RAQAMI}</code>\n<b>{KARTA_EGASI}</b>\n\n📸 Chek skrinshotini shu yerga yuboring."
-    await callback.message.delete()
+    try: await callback.message.delete()
+    except: pass
     await callback.message.answer(text, parse_mode="HTML")
     await state.set_state("waiting_for_receipt")
     await callback.answer()
@@ -234,9 +241,12 @@ async def approve_payment(callback: CallbackQuery, bot: Bot):
     _, mode, user_id = callback.data.split("_")
     user_id = int(user_id)
     
-    try: await callback.message.edit_caption(caption="✅ To'lov tasdiqlandi! O'yinchi navbatga qo'shildi.")
-    except: pass
     await callback.answer("Tasdiqlandi!")
+    
+    try:
+        await callback.message.delete()
+        await bot.send_message(ADMIN_ID, f"✅ To'lov tasdiqlandi!\nID: {user_id}\nTur: {mode}")
+    except: pass
 
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("INSERT OR REPLACE INTO queues (user_id, mode, status) VALUES (?, ?, 'waiting')", (user_id, mode))
@@ -245,7 +255,8 @@ async def approve_payment(callback: CallbackQuery, bot: Bot):
         cursor = await db.execute("SELECT user_id FROM queues WHERE mode = ? AND status = 'waiting' LIMIT 4", (mode,))
         waiting_users = [row[0] for row in await cursor.fetchall()]
 
-    try: await bot.send_message(user_id, f"✅ To'lov tasdiqlandi! ({'2 kishilik' if mode == 'pay_2' else '4 kishilik'}). Navbatga qo'shildingiz, raqiblaringizni kuting...")
+    try: 
+        await bot.send_message(user_id, f"✅ To'lov tasdiqlandi! ({'2 kishilik' if mode == 'pay_2' else '4 kishilik'}). Navbatga qo'shildingiz, raqiblaringizni kuting...")
     except: pass
 
     required_count = 2 if mode == "pay_2" else 4
@@ -295,6 +306,8 @@ async def duel_answer(callback: CallbackQuery, callback_data: GameCB, bot: Bot):
     is_correct = ans_data[-1] == "1"
     user_id = callback.from_user.id
     
+    await callback.answer()
+    
     if is_correct:
         async with aiosqlite.connect(DB_PATH) as db:
             cursor = await db.execute("SELECT mode FROM queues WHERE user_id = ? AND status = 'playing'", (user_id,))
@@ -312,7 +325,9 @@ async def duel_answer(callback: CallbackQuery, callback_data: GameCB, bot: Bot):
             await bot.send_message(ADMIN_ID, f"⚔️ <b>Bellashuv yakunlandi!</b>\n🏆 G'olib ID: <code>{user_id}</code>\n💰 Yutuq: {prize:,} so'm\n\nG'olibdan karta raqamini so'rang!")
         except: pass
         
-        try: await callback.message.edit_text("✅ Siz to'g'ri javob berdingiz va yutdingiz! Admin bilan bog'lanasiz.", reply_markup=main_menu())
+        try: 
+            await callback.message.delete()
+            await callback.message.answer("✅ Siz to'g'ri javob berdingiz va yutdingiz! Admin bilan bog'lanasiz.", reply_markup=main_menu())
         except: pass
     else:
         aqlli_gap = (
@@ -325,7 +340,9 @@ async def duel_answer(callback: CallbackQuery, callback_data: GameCB, bot: Bot):
             "Raqibingiz sizdan ancha tezroq va aqlliroq bo'lib chiqdi.\n"
             "Miyangizni ishlatib ko'ring! 🧠🤡"
         )
-        try: await callback.message.edit_text(aqlli_gap, reply_markup=main_menu(), parse_mode="HTML")
+        try: 
+            await callback.message.delete()
+            await callback.message.answer(aqlli_gap, reply_markup=main_menu(), parse_mode="HTML")
         except: pass
         
         async with aiosqlite.connect(DB_PATH) as db:
@@ -335,11 +352,9 @@ async def duel_answer(callback: CallbackQuery, callback_data: GameCB, bot: Bot):
                 if p != user_id:
                     try: await bot.send_message(p, aqlli_gap, parse_mode="HTML")
                     except: pass
-    await callback.answer()
 
 # --- ISHGA TUSHIRISH ---
 async def main():
-    # Eski bazani o'chirish (har safar toza boshlanishi uchun)
     if os.path.exists(DB_PATH):
         os.remove(DB_PATH)
         
