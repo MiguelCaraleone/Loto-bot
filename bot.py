@@ -229,7 +229,7 @@ async def receive_receipt(message: Message, state: FSMContext, bot: Bot):
     admin_text = f"🧾 <b>Yangi chek!</b>\n👤 {message.from_user.full_name}\n🆔 <code>{user_id}</code>\n💰 {amount}\n🎮 {'2 kishilik' if mode == 'pay_2' else '4 kishilik'}\n\nTasdiqlaysizmi?"
     builder = InlineKeyboardBuilder()
     builder.button(text="✅ Tasdiqlash", callback_data=f"approve_{mode}_{user_id}")
-    builder.button(text="❌ Rad etish", callback_data="reject")
+    builder.button(text="❌ Rad etish", callback_data=f"reject_{user_id}")
     try: await bot.send_photo(ADMIN_ID, message.photo[-1].file_id, caption=admin_text, reply_markup=builder.as_markup(), parse_mode="HTML")
     except: pass
     await message.answer("⏳ Chek adminga yuborildi. Tasdiqlanishini kuting...")
@@ -244,8 +244,7 @@ async def approve_payment(callback: CallbackQuery, bot: Bot):
     await callback.answer("Tasdiqlandi!")
     
     try:
-        await callback.message.delete()
-        await bot.send_message(ADMIN_ID, f"✅ To'lov tasdiqlandi!\nID: {user_id}\nTur: {mode}")
+        await bot.send_message(ADMIN_ID, f"✅ To'lov tasdiqlandi!\nID: {user_id}")
     except: pass
 
     async with aiosqlite.connect(DB_PATH) as db:
@@ -255,26 +254,49 @@ async def approve_payment(callback: CallbackQuery, bot: Bot):
         cursor = await db.execute("SELECT user_id FROM queues WHERE mode = ? AND status = 'waiting' LIMIT 4", (mode,))
         waiting_users = [row[0] for row in await cursor.fetchall()]
 
-    try: 
-        await bot.send_message(user_id, f"✅ To'lov tasdiqlandi! ({'2 kishilik' if mode == 'pay_2' else '4 kishilik'}). Navbatga qo'shildingiz, raqiblaringizni kuting...")
-    except: pass
-
     required_count = 2 if mode == "pay_2" else 4
-    if len(waiting_users) >= required_count:
+    
+    if len(waiting_users) < required_count:
+        try: 
+            await bot.send_message(user_id, f"✅ To'lov tasdiqlandi! Navbatga qo'shildingiz. Raqiblaringizni kuting...")
+        except: pass
+    else:
         players = waiting_users[:required_count]
         async with aiosqlite.connect(DB_PATH) as db:
             for p in players:
                 await db.execute("UPDATE queues SET status = 'playing' WHERE user_id = ?", (p,))
             await db.commit()
-        prize = 20000 if mode == "pay_2" else 32000
+            
+        # 1.5 BAROBAR QILINGAN YUTUQ MIQDORLARI
+        prize = 18000 if mode == "pay_2" else 25500 
+        
+        for p in players:
+            try:
+                await bot.send_message(p, "⚔️ Barcha ishtirokchilar yig'ildi! O'yin boshlanmoqda...")
+            except: pass
+            
         await start_duel(bot, players, "2 kishilik" if mode == "pay_2" else "4 kishilik", prize)
 
-@router.callback_query(F.data == "reject")
-async def reject_payment(callback: CallbackQuery):
+@router.callback_query(F.data.startswith("reject_"))
+async def reject_payment(callback: CallbackQuery, bot: Bot):
     if callback.from_user.id != ADMIN_ID: return
-    try: await callback.message.edit_caption(caption="❌ To'lov rad etildi.")
-    except: pass
+    
+    rejected_user_id = int(callback.data.split("_")[1])
+    
     await callback.answer("Rad etildi!")
+    
+    try:
+        await bot.send_message(ADMIN_ID, f"❌ To'lov rad etildi. (ID: {rejected_user_id})")
+    except: pass
+    
+    try:
+        await bot.send_message(
+            rejected_user_id, 
+            "❌ <b>Afsuski, to'lovingiz admin tomonidan rad etildi yoki chek noto'g'ri yuborilgan.</b>\n\n"
+            "Iltimos, to'lovni qaytadan amalga oshirib, chekni botga qayta yuboring.", 
+            parse_mode="HTML"
+        )
+    except: pass
 
 async def start_duel(bot: Bot, players: list, duel_type: str, prize: int):
     duel_id = random.randint(1000, 9999)
@@ -316,9 +338,10 @@ async def duel_answer(callback: CallbackQuery, callback_data: GameCB, bot: Bot):
                 mode = row[0]
                 await db.execute("DELETE FROM queues WHERE mode = ? AND status = 'playing'", (mode,))
                 await db.commit()
-                prize = 20000 if mode == "pay_2" else 32000
+                # 1.5 BAROBAR QILINGAN YUTUQ
+                prize = 18000 if mode == "pay_2" else 25500
             else:
-                prize = 20000
+                prize = 18000
         
         try:
             await bot.send_message(user_id, f"🎉 <b>TABRIKLAYMIZ, SIZ YUTDINGIZ!</b> 🎉\n\nSiz raqiblaringizni tezroq yutdingiz va <b>{prize:,} so'mni</b> qo'lga kiritdingiz!\n\nAdmin pulni o'tkazishi uchun karta raqamingizni yuboring:")
@@ -326,8 +349,7 @@ async def duel_answer(callback: CallbackQuery, callback_data: GameCB, bot: Bot):
         except: pass
         
         try: 
-            await callback.message.delete()
-            await callback.message.answer("✅ Siz to'g'ri javob berdingiz va yutdingiz! Admin bilan bog'lanasiz.", reply_markup=main_menu())
+            await callback.message.edit_text("✅ Siz to'g'ri javob berdingiz va yutdingiz! Admin bilan bog'lanasiz.", reply_markup=main_menu())
         except: pass
     else:
         aqlli_gap = (
@@ -341,8 +363,7 @@ async def duel_answer(callback: CallbackQuery, callback_data: GameCB, bot: Bot):
             "Miyangizni ishlatib ko'ring! 🧠🤡"
         )
         try: 
-            await callback.message.delete()
-            await callback.message.answer(aqlli_gap, reply_markup=main_menu(), parse_mode="HTML")
+            await callback.message.edit_text(aqlli_gap, reply_markup=main_menu(), parse_mode="HTML")
         except: pass
         
         async with aiosqlite.connect(DB_PATH) as db:
