@@ -19,7 +19,6 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 # ==================== SOZLAMALAR ====================
-# Railway Environment Variables'dan o'qiydi yoki o'zingiz yozgan qiymatni oladi:
 BOT_TOKEN = os.getenv("BOT_TOKEN", "BOT_TOKENINGIZNI_YOZING")
 BOT_USERNAME = os.getenv("BOT_USERNAME", "SizningBotingiz_bot")
 BOSH_ADMIN_ID = int(os.getenv("BOSH_ADMIN_ID", "123456789"))
@@ -29,8 +28,7 @@ DB_NAME = "chegirmalar.db"
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
-# ==================== KATTA SAVOLLAR BAZASI ====================
-# Har gal ushbu bazadan 3 tasi tasodifiy tanlanadi va variantlari aralashtiriladi
+# ==================== SAVOLLAR BAZASI ====================
 SAVOLLAR_BANKI = {
     "tarix": [
         {"savol": "Amir Temur qachon tavallud topgan?", "variantlar": ["1336-yil", "1340-yil", "1370-yil"], "javob": "1336-yil"},
@@ -57,7 +55,7 @@ class TestHolati(StatesGroup):
     fan_tanlash = State()
     test_yechish = State()
 
-# ==================== ASINXRON BAZA AMALLARI (aiosqlite) ====================
+# ==================== ASINXRON BAZA AMALLARI ====================
 async def init_db():
     async with aiosqlite.connect(DB_NAME) as db:
         await db.execute("""
@@ -235,10 +233,10 @@ async def start_buyrugi(message: types.Message, command: CommandObject, state: F
     await state.clear()
     args = command.args
 
-    # 1. KASSIR QR-KODNI TEKSHIRGANDA:
+    # 1. KASSIR QR-KODNI SKANERLAB KIRGANDA:
     if args and args.startswith("CH_"):
         if not await is_kassir(message.from_user.id):
-            await message.answer("⚠️ Bu QR-kod faqat do‘kon kassiri tomonidan skanerlanishi mumkin!")
+            await message.answer("⚠️ Bu QR-kod faqat kassir tomonidan skanerlanishi mumkin!")
             return
 
         holat, qiymat = await kodni_tekshirish(args)
@@ -247,7 +245,7 @@ async def start_buyrugi(message: types.Message, command: CommandObject, state: F
                 f"✅ <b>CHEGIRMA TASDIQLANDI!</b>\n\n"
                 f"🎟 Kod: <code>{args}</code>\n"
                 f"🎁 Chegirma: <b>{qiymat}%</b>\n"
-                f"🔒 Holat: Kod bazada yopildi (bir martalik).",
+                f"🔒 Holat: Kod bazada yopildi (qayta ishlatib bo‘lmaydi).",
                 parse_mode="HTML"
             )
         elif holat == "oldin_ishlatilgan":
@@ -255,14 +253,14 @@ async def start_buyrugi(message: types.Message, command: CommandObject, state: F
                 f"❌ <b>BU KOD OLDIN ISHLATILGAN!</b>\n\n"
                 f"🎟 Kod: <code>{args}</code>\n"
                 f"🕒 Ishlatilgan vaqt: {qiymat}\n"
-                f"⛔️ Chegirma berilmaydi!",
+                f"⛔️ Chegirma taqdim etilmaydi!",
                 parse_mode="HTML"
             )
         else:
             await message.answer("🚫 Bunday chegirma kodi topilmadi.")
         return
 
-    # 2. KASSIR TAKLIF HAVOLASINI BOSGANDA:
+    # 2. KASSIR BIR MARTALIK TAKLIF HAVOLASINI BOSGANDA:
     if args and args.startswith("kassir_"):
         token = args.replace("kassir_", "")
         async with aiosqlite.connect(DB_NAME) as db:
@@ -277,18 +275,18 @@ async def start_buyrugi(message: types.Message, command: CommandObject, state: F
                 )
                 await db.commit()
 
-                await message.answer("🎉 <b>Tabriklaymiz! Siz kassir sifatida ulandingiz.</b>\nEndi xaridorlar QR-kodini tekshirishingiz mumkin.", parse_mode="HTML")
+                await message.answer("🎉 <b>Tabriklaymiz! Siz kassir sifatida tizimga ulandingiz.</b>\nEndi xaridorlarning QR-kodlarini tekshirishingiz mumkin.", parse_mode="HTML")
                 await bot.send_message(
                     chat_id=BOSH_ADMIN_ID,
-                    text=f"🔔 <b>Yangi kassir qo‘shildi:</b> {message.from_user.full_name} (ID: <code>{message.from_user.id}</code>)",
+                    text=f"🔔 <b>Yangi kassir ulandi:</b> {message.from_user.full_name} (ID: <code>{message.from_user.id}</code>)",
                     parse_mode="HTML"
                 )
                 return
             else:
-                await message.answer("❌ Ushbu taklif havolasi eskirgan yoki ishlatilgan!")
+                await message.answer("❌ Ushbu taklif havolasi eskirgan yoki avval ishlatilgan!")
                 return
 
-    # 3. ODDIY FOYDALANUVCHIGA TEST BOSHLANISHI:
+    # 3. ODDIY FOYDALANUVCHIGA TEST MENYUSI:
     await message.answer(
         "👋 <b>Do‘konimiz viktorinasiga xush kelibsiz!</b>\n\n"
         "3 ta savoldan iborat qiziqarli testni yeching va chegirmaga ega bo‘ling:\n"
@@ -300,19 +298,18 @@ async def start_buyrugi(message: types.Message, command: CommandObject, state: F
     )
     await state.set_state(TestHolati.fan_tanlash)
 
-# ==================== TESTNI TASODIFIY TANLASH VA O'TKAZISH ====================
+# ==================== TEST JARAYONI ====================
 @dp.callback_query(F.data.startswith("fan:"))
 async def fan_tanlandi(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
-    fan_nomi = callback.data.split(":")[1]
+    await state.clear()  # Eski barcha sessiya qoldiqlarini tozalash
 
+    fan_nomi = callback.data.split(":")[1]
     if fan_nomi not in SAVOLLAR_BANKI:
         return
 
-    # Savollar bankidan 3 ta tasodifiy savolni tanlab olamiz:
+    # Aynan shu fandan tasodifiy 3 ta savol va ularning variantlarini aralashtirish
     tanlangan_savollar = random.sample(SAVOLLAR_BANKI[fan_nomi], 3)
-    
-    # Har bir savolning variantlarini ham aralashtirib chiqamiz:
     tayyor_savollar = []
     for s in tanlangan_savollar:
         variantlar = list(s["variantlar"])
@@ -323,18 +320,20 @@ async def fan_tanlandi(callback: types.CallbackQuery, state: FSMContext):
             "javob": s["javob"]
         })
 
-    # Foydalanuvchining shaxsiy FSM xotirasiga unikal savollarini saqlaymiz:
-    await state.update_data(
-        fan=fan_nomi, 
-        savollar=tayyor_savollar, 
-        savol_indeksi=0, 
-        togri_javoblar=0
-    )
     await state.set_state(TestHolati.test_yechish)
+    await state.set_data({
+        "joriy_fan": fan_nomi,
+        "savollar": tayyor_savollar,
+        "savol_indeksi": 0,
+        "togri_javoblar": 0
+    })
 
     birinchi_savol = tayyor_savollar[0]
-    await callback.message.edit_text(
-        text=f"📌 <b>{fan_nomi.capitalize()} fani</b> (1/3)\n\n{birinchi_savol['savol']}",
+    
+    # Eski tugmalar keshlanib qolmasligi uchun xabarni o'chirib, toza yangi savol yuboramiz
+    await callback.message.delete()
+    await callback.message.answer(
+        text=f"📌 <b>{fan_nomi.upper()} fani</b> (1/3-savol)\n\n{birinchi_savol['savol']}",
         reply_markup=savol_klaviaturasi(birinchi_savol["variantlar"]),
         parse_mode="HTML"
     )
@@ -345,12 +344,16 @@ async def javob_tekshirish(callback: types.CallbackQuery, state: FSMContext):
     foydalanuvchi_javobi = callback.data.replace("javob:", "")
 
     data = await state.get_data()
-    fan = data.get("fan")
-    savollar = data.get("savollar", [])
+    if "savollar" not in data or not data["savollar"]:
+        await callback.message.answer("⚠️ Sessiya eskirgan. Iltimos, /start bosing.")
+        await state.clear()
+        return
+
+    fan = data.get("joriy_fan")
+    savollar = data.get("savollar")
     indeks = data.get("savol_indeksi", 0)
     togri_soni = data.get("togri_javoblar", 0)
 
-    # To'g'riligini tekshirish
     if foydalanuvchi_javobi == savollar[indeks]["javob"]:
         togri_soni += 1
 
@@ -360,12 +363,11 @@ async def javob_tekshirish(callback: types.CallbackQuery, state: FSMContext):
         await state.update_data(savol_indeksi=keyingi_indeks, togri_javoblar=togri_soni)
         keyingi_savol = savollar[keyingi_indeks]
         await callback.message.edit_text(
-            text=f"📌 <b>{fan.capitalize()} fani</b> ({keyingi_indeks + 1}/3)\n\n{keyingi_savol['savol']}",
+            text=f"📌 <b>{fan.upper()} fani</b> ({keyingi_indeks + 1}/3-savol)\n\n{keyingi_savol['savol']}",
             reply_markup=savol_klaviaturasi(keyingi_savol["variantlar"]),
             parse_mode="HTML"
         )
     else:
-        # TEST TUGADI
         await state.clear()
         user_id = callback.from_user.id
 
@@ -382,20 +384,20 @@ async def javob_tekshirish(callback: types.CallbackQuery, state: FSMContext):
                 chat_id=callback.message.chat.id,
                 photo=qr_rasm,
                 caption=(
-                    f"🎉 <b>Tabriklaymiz! Siz {togri_soni} ta savolga to‘g‘ri javob berdingiz!</b>\n\n"
+                    f"🎉 <b>Tabriklaymiz! Siz {fan.upper()} fanidan {togri_soni} ta to‘g‘ri javob berdingiz!</b>\n\n"
                     f"Sizga barcha mahsulotlar uchun <b>{foiz}% lik chegirma</b> berildi.\n\n"
                     f"💰 <b>Xarid namunalari:</b>\n"
                     f"• 10 000 so‘mlik xarid ➡️ <b>{10000 - (10000 * foiz // 100)} so‘m</b>\n"
                     f"• 40 000 so‘mlik xarid ➡️ <b>{40000 - (40000 * foiz // 100)} so‘m</b>\n\n"
-                    f"📲 Do‘konda to‘lov paytida ushbu <b>QR-kodni</b> kassirga ko‘rsating!\n"
-                    f"<i>(Vaucher faqat 1 marta ishlatiladi)</i>"
+                    f"📲 Do‘konga borganingizda ushbu <b>QR-kodni</b> kassirga ko‘rsating!\n"
+                    f"<i>(Vaucher faqat 1 marta amal qiladi)</i>"
                 ),
                 parse_mode="HTML"
             )
         else:
             await callback.message.edit_text(
                 f"Siz {togri_soni} ta to‘g‘ri javob berdingiz.\n"
-                f"Chegirmaga ega bo‘lish uchun kamida 2 ta savolga to‘g‘ri javob berish kerak edi.\n\n"
+                f"Chegirmaga ega bo‘lish uchun kamida 2 ta to‘g‘ri javob kerak edi.\n\n"
                 f"Qaytadan urinib ko‘ring: /start"
             )
 
@@ -414,7 +416,7 @@ async def kassir_taklif_linki(message: types.Message):
     await message.answer(
         f"🔗 <b>Kassir uchun bir martalik taklif havolasi:</b>\n\n"
         f"<code>{havola}</code>\n\n"
-        f"Ushbu havolani kassiringizga yuboring. U bosib <b>Start</b> tugmasini bosishi bilan kassirga aylanadi.",
+        f"Ushbu havolani kassirga yuboring. U bosib <b>Start</b> tugmasini bosishi bilan kassir sifatida ulanadi.",
         parse_mode="HTML"
     )
 
@@ -456,7 +458,7 @@ async def statistika_handler(message: types.Message):
         f"  └ 3% lik: <b>{stat['hafta_3']} ta</b>\n\n"
         "📦 <b>UMUMIY BAZA:</b>\n"
         f"• Berilgan jami vaucherlar: <b>{stat['jami_berilgan']} ta</b>\n"
-        f"• Ishlatilishi kutilayotganlar: <b>{stat['hali_ishlatilmagan']} ta</b>\n"
+        f"• Hali ishlatilmaganlar: <b>{stat['hali_ishlatilmagan']} ta</b>\n"
         "━━━━━━━━━━━━━━━━━━━━━━"
     )
     await message.answer(matn, parse_mode="HTML")
@@ -496,7 +498,6 @@ async def kunlik_avto_hisobot():
 async def main():
     await init_db()
 
-    # Soat 21:00 uchun rejalashtiruvchi
     scheduler = AsyncIOScheduler(timezone="Asia/Tashkent")
     scheduler.add_job(
         kunlik_avto_hisobot,
