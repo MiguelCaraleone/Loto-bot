@@ -19,8 +19,8 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 # ==================== SOZLAMALAR ====================
-BOT_TOKEN = os.getenv("BOT_TOKEN", "BOT_TOKENINGIZNI_YOZING")
-BOT_USERNAME = os.getenv("BOT_USERNAME", "SizningBotingiz_bot")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "9237388648:AAHqC1UHqbkMUFwEIW-vE59Oj990Zp2Ar4w")
+BOT_USERNAME = os.getenv("BOT_USERNAME", "Jokerlotobot")
 BOSH_ADMIN_ID = int(os.getenv("BOSH_ADMIN_ID", "123456789"))
 
 DB_NAME = "chegirmalar.db"
