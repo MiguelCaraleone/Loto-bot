@@ -159,7 +159,12 @@ async def hisobot_olish():
 
 # ==================== YORDAMCHI VIZUALLAR (QR VA EXCEL) ====================
 def qr_kod_yaratish(havola: str) -> BufferedInputFile:
-    qr = qrcode.QRCode(box_size=10, border=2)
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_M,
+        box_size=10,
+        border=2
+    )
     qr.add_data(havola)
     qr.make(fit=True)
     img = qr.make_image(fill_color="black", back_color="white")
@@ -167,7 +172,7 @@ def qr_kod_yaratish(havola: str) -> BufferedInputFile:
     buffer = io.BytesIO()
     img.save(buffer, format="PNG")
     buffer.seek(0)
-    return BufferedInputFile(buffer.getvalue(), filename="vaucher.png")
+    return BufferedInputFile(buffer.getvalue(), filename="vaucher_qr.png")
 
 async def generate_excel_report() -> io.BytesIO:
     async with aiosqlite.connect(DB_NAME) as db:
@@ -233,10 +238,10 @@ async def start_buyrugi(message: types.Message, command: CommandObject, state: F
     await state.clear()
     args = command.args
 
-    # 1. KASSIR QR-KODNI SKANERLAB KIRGANDA:
+    # 1. KASSIR QR-KODNI SKANERLANGANDA:
     if args and args.startswith("CH_"):
         if not await is_kassir(message.from_user.id):
-            await message.answer("⚠️ Bu QR-kod faqat kassir tomonidan skanerlanishi mumkin!")
+            await message.answer("⚠️ Bu QR-kod faqat kassirlar tomonidan skanerlanishi mumkin!")
             return
 
         holat, qiymat = await kodni_tekshirish(args)
@@ -245,7 +250,7 @@ async def start_buyrugi(message: types.Message, command: CommandObject, state: F
                 f"✅ <b>CHEGIRMA TASDIQLANDI!</b>\n\n"
                 f"🎟 Kod: <code>{args}</code>\n"
                 f"🎁 Chegirma: <b>{qiymat}%</b>\n"
-                f"🔒 Holat: Kod bazada yopildi (qayta ishlatib bo‘lmaydi).",
+                f"🔒 Holat: Kod bazada yopildi (bir martalik).",
                 parse_mode="HTML"
             )
         elif holat == "oldin_ishlatilgan":
@@ -253,14 +258,14 @@ async def start_buyrugi(message: types.Message, command: CommandObject, state: F
                 f"❌ <b>BU KOD OLDIN ISHLATILGAN!</b>\n\n"
                 f"🎟 Kod: <code>{args}</code>\n"
                 f"🕒 Ishlatilgan vaqt: {qiymat}\n"
-                f"⛔️ Chegirma taqdim etilmaydi!",
+                f"⛔️ Mijozga chegirma berilmaydi!",
                 parse_mode="HTML"
             )
         else:
             await message.answer("🚫 Bunday chegirma kodi topilmadi.")
         return
 
-    # 2. KASSIR BIR MARTALIK TAKLIF HAVOLASINI BOSGANDA:
+    # 2. TAKLIF HAVOLASI ORQALI KASSIR ULANGANDA:
     if args and args.startswith("kassir_"):
         token = args.replace("kassir_", "")
         async with aiosqlite.connect(DB_NAME) as db:
@@ -275,7 +280,7 @@ async def start_buyrugi(message: types.Message, command: CommandObject, state: F
                 )
                 await db.commit()
 
-                await message.answer("🎉 <b>Tabriklaymiz! Siz kassir sifatida tizimga ulandingiz.</b>\nEndi xaridorlarning QR-kodlarini tekshirishingiz mumkin.", parse_mode="HTML")
+                await message.answer("🎉 <b>Tabriklaymiz! Siz kassir sifatida tizimga ulandingiz.</b>\nEndi xaridorlar QR-kodini kamerangiz orqali tekshirishingiz mumkin.", parse_mode="HTML")
                 await bot.send_message(
                     chat_id=BOSH_ADMIN_ID,
                     text=f"🔔 <b>Yangi kassir ulandi:</b> {message.from_user.full_name} (ID: <code>{message.from_user.id}</code>)",
@@ -283,10 +288,10 @@ async def start_buyrugi(message: types.Message, command: CommandObject, state: F
                 )
                 return
             else:
-                await message.answer("❌ Ushbu taklif havolasi eskirgan yoki avval ishlatilgan!")
+                await message.answer("❌ Ushbu taklif havolasi eskirgan yoki ishlatilgan!")
                 return
 
-    # 3. ODDIY FOYDALANUVCHIGA TEST MENYUSI:
+    # 3. ODDIY FOYDALANUVCHIGA TEST BOSHLANISHI:
     await message.answer(
         "👋 <b>Do‘konimiz viktorinasiga xush kelibsiz!</b>\n\n"
         "3 ta savoldan iborat qiziqarli testni yeching va chegirmaga ega bo‘ling:\n"
@@ -302,13 +307,12 @@ async def start_buyrugi(message: types.Message, command: CommandObject, state: F
 @dp.callback_query(F.data.startswith("fan:"))
 async def fan_tanlandi(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
-    await state.clear()  # Eski barcha sessiya qoldiqlarini tozalash
+    await state.clear()
 
     fan_nomi = callback.data.split(":")[1]
     if fan_nomi not in SAVOLLAR_BANKI:
         return
 
-    # Aynan shu fandan tasodifiy 3 ta savol va ularning variantlarini aralashtirish
     tanlangan_savollar = random.sample(SAVOLLAR_BANKI[fan_nomi], 3)
     tayyor_savollar = []
     for s in tanlangan_savollar:
@@ -330,8 +334,12 @@ async def fan_tanlandi(callback: types.CallbackQuery, state: FSMContext):
 
     birinchi_savol = tayyor_savollar[0]
     
-    # Eski tugmalar keshlanib qolmasligi uchun xabarni o'chirib, toza yangi savol yuboramiz
-    await callback.message.delete()
+    # Eski tugmalar aralashmasligi uchun avvalgisini o'chirib, toza yangi xabar beramiz
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
+
     await callback.message.answer(
         text=f"📌 <b>{fan_nomi.upper()} fani</b> (1/3-savol)\n\n{birinchi_savol['savol']}",
         reply_markup=savol_klaviaturasi(birinchi_savol["variantlar"]),
@@ -368,40 +376,123 @@ async def javob_tekshirish(callback: types.CallbackQuery, state: FSMContext):
             parse_mode="HTML"
         )
     else:
-        await state.clear()
+        # TEST YAKUNLANDI
         user_id = callback.from_user.id
+        await state.clear()
+
+        # Eski xabarni o'chirib tashlaymiz
+        try:
+            await callback.message.delete()
+        except Exception:
+            pass
 
         if togri_soni >= 2:
             foiz = 5 if togri_soni == 3 else 3
             unikal_kod = f"CH_{foiz}_{user_id}_{random.randint(1000, 9999)}"
             await kod_saqlash(unikal_kod, user_id, foiz)
 
+            # QR-kod havolasi (Telegram Deep Link)
             skaner_havolasi = f"https://t.me/{BOT_USERNAME}?start={unikal_kod}"
             qr_rasm = qr_kod_yaratish(skaner_havolasi)
 
-            await callback.message.delete()
-            await bot.send_photo(
-                chat_id=callback.message.chat.id,
-                photo=qr_rasm,
-                caption=(
-                    f"🎉 <b>Tabriklaymiz! Siz {fan.upper()} fanidan {togri_soni} ta to‘g‘ri javob berdingiz!</b>\n\n"
-                    f"Sizga barcha mahsulotlar uchun <b>{foiz}% lik chegirma</b> berildi.\n\n"
-                    f"💰 <b>Xarid namunalari:</b>\n"
-                    f"• 10 000 so‘mlik xarid ➡️ <b>{10000 - (10000 * foiz // 100)} so‘m</b>\n"
-                    f"• 40 000 so‘mlik xarid ➡️ <b>{40000 - (40000 * foiz // 100)} so‘m</b>\n\n"
-                    f"📲 Do‘konga borganingizda ushbu <b>QR-kodni</b> kassirga ko‘rsating!\n"
-                    f"<i>(Vaucher faqat 1 marta amal qiladi)</i>"
-                ),
-                parse_mode="HTML"
-            )
-        else:
-            await callback.message.edit_text(
-                f"Siz {togri_soni} ta to‘g‘ri javob berdingiz.\n"
-                f"Chegirmaga ega bo‘lish uchun kamida 2 ta to‘g‘ri javob kerak edi.\n\n"
-                f"Qaytadan urinib ko‘ring: /start"
+            matn = (
+                f"🎉 <b>Tabriklaymiz! Siz {fan.upper()} fanidan {togri_soni} ta to‘g‘ri javob berdingiz!</b>\n\n"
+                f"Sizga barcha mahsulotlar uchun <b>{foiz}% lik chegirma</b> berildi.\n\n"
+                f"💰 <b>Xarid namunalari:</b>\n"
+                f"• 10 000 so‘mlik xarid ➡️ <b>{10000 - (10000 * foiz // 100)} so‘m</b>\n"
+                f"• 40 000 so‘mlik xarid ➡️ <b>{40000 - (40000 * foiz // 100)} so‘m</b>\n\n"
+                f"🎟 <b>Vaucher kodi:</b> <code>{unikal_kod}</code>\n"
+                f"📲 Do‘konga borganingizda yuqoridagi <b>QR-kodni</b> kassirga ko‘rsating!\n"
+                f"<i>(Vaucher faqat 1 marta amal qiladi)</i>"
             )
 
-# ==================== ADMIN VA KASSIR BUYRUQLARI ====================
+            try:
+                # QR-kod rasm ko'rinishida yuboriladi
+                await bot.send_photo(
+                    chat_id=user_id,
+                    photo=qr_rasm,
+                    caption=matn,
+                    parse_mode="HTML"
+                )
+            except Exception as e:
+                # Agar rasm jo'natishda xatolik bo'lsa, hech bo'lmasa matnning o'zi boradi
+                await bot.send_message(
+                    chat_id=user_id,
+                    text=f"{matn}\n\n⚠️ <i>QR-kod yuklashda xatolik: {e}</i>",
+                    parse_mode="HTML"
+                )
+        else:
+            await bot.send_message(
+                chat_id=user_id,
+                text=(
+                    f"Siz {togri_soni} ta to‘g‘ri javob berdingiz.\n"
+                    f"Chegirmaga ega bo‘lish uchun kamida 2 ta to‘g‘ri javob kerak edi.\n\n"
+                    f"Qaytadan urinib ko‘ring: /start"
+                )
+            )
+
+# ==================== KASSIRLARNI BELGILASH VA BOSHQARISH (FAQAT ADMIN) ====================
+
+# 1. ID orqali kassir qo'shish: /kassir_qosh 543216789 Jasur
+@dp.message(Command("kassir_qosh"))
+async def kassir_qolda_qoshish(message: types.Message):
+    if message.from_user.id != BOSH_ADMIN_ID:
+        return
+
+    qismlar = message.text.strip().split(maxsplit=2)
+    if len(qismlar) < 3:
+        await message.answer(
+            "⚠️ <b>Format noto‘g‘ri!</b>\nNamuna: <code>/kassir_qosh 543216789 Sardor</code>",
+            parse_mode="HTML"
+        )
+        return
+
+    try:
+        yangi_kassir_id = int(qismlar[1])
+        ism = qismlar[2]
+    except ValueError:
+        await message.answer("⚠️ ID raqam faqat sonlardan iborat bo‘lishi kerak!")
+        return
+
+    async with aiosqlite.connect(DB_NAME) as db:
+        await db.execute(
+            "INSERT OR REPLACE INTO kassirlar (user_id, ism) VALUES (?, ?)",
+            (yangi_kassir_id, ism)
+        )
+        await db.commit()
+
+    await message.answer(
+        f"✅ <b>Kassir muvaffaqiyatli belgilandi!</b>\n\n"
+        f"👤 Xodim: <b>{ism}</b>\n"
+        f"🆔 ID: <code>{yangi_kassir_id}</code>\n"
+        f"Endi ushbu shaxs xaridorlarning QR-kodlarini tekshira oladi.",
+        parse_mode="HTML"
+    )
+
+# 2. Kassirni vazifasidan o'chirish: /kassir_ochir 543216789
+@dp.message(Command("kassir_ochir"))
+async def kassir_ochirish(message: types.Message):
+    if message.from_user.id != BOSH_ADMIN_ID:
+        return
+
+    qismlar = message.text.strip().split()
+    if len(qismlar) < 2:
+        await message.answer("⚠️ Namuna: <code>/kassir_ochir 543216789</code>", parse_mode="HTML")
+        return
+
+    try:
+        ochiriladigan_id = int(qismlar[1])
+    except ValueError:
+        await message.answer("⚠️ ID raqam faqat sonlardan iborat bo‘lishi kerak!")
+        return
+
+    async with aiosqlite.connect(DB_NAME) as db:
+        await db.execute("DELETE FROM kassirlar WHERE user_id = ?", (ochiriladigan_id,))
+        await db.commit()
+
+    await message.answer(f"🗑 Kassir (ID: <code>{ochiriladigan_id}</code>) muvaffaqiyatli o‘chirildi!", parse_mode="HTML")
+
+# 3. Havola orqali kassir qo'shish (1 martalik link yaratish): /yangi_kassir
 @dp.message(Command("yangi_kassir"))
 async def kassir_taklif_linki(message: types.Message):
     if message.from_user.id != BOSH_ADMIN_ID:
@@ -416,10 +507,11 @@ async def kassir_taklif_linki(message: types.Message):
     await message.answer(
         f"🔗 <b>Kassir uchun bir martalik taklif havolasi:</b>\n\n"
         f"<code>{havola}</code>\n\n"
-        f"Ushbu havolani kassirga yuboring. U bosib <b>Start</b> tugmasini bosishi bilan kassir sifatida ulanadi.",
+        f"Ushbu havolani xodimingizga yuboring. U bosib <b>Start</b> qilishi bilan avtomatik kassirga aylanadi.",
         parse_mode="HTML"
     )
 
+# 4. Ulangan barcha kassirlarni ko'rish: /kassirlar
 @dp.message(Command("kassirlar"))
 async def kassirlar_royxati(message: types.Message):
     if message.from_user.id != BOSH_ADMIN_ID:
@@ -435,9 +527,10 @@ async def kassirlar_royxati(message: types.Message):
 
     matn = "📋 <b>Ulangan kassirlar ro‘yxati:</b>\n\n"
     for kid, ism, vaqt in kassirlar:
-        matn += f"• <b>{ism}</b> (ID: <code>{kid}</code>) — {vaqt}\n"
+        matn += f"• <b>{ism}</b> (ID: <code>{kid}</code>) — <i>{vaqt}</i>\n"
     await message.answer(matn, parse_mode="HTML")
 
+# ==================== KASSIRLAR VA ADMIN STATISTIKASI ====================
 @dp.message(Command("statistika"))
 async def statistika_handler(message: types.Message):
     if not await is_kassir(message.from_user.id):
