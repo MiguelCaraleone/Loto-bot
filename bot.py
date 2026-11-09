@@ -28,34 +28,48 @@ DB_NAME = "chegirmalar.db"
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
-# ==================== SAVOLLAR BAZASI ====================
+# ==================== SAVOLLAR BAZASI (BOLALAR VA KATTALAR) ====================
 SAVOLLAR_BANKI = {
-    "tarix": [
-        {"savol": "Amir Temur qachon tavallud topgan?", "variantlar": ["1336-yil", "1340-yil", "1370-yil"], "javob": "1336-yil"},
-        {"savol": "Jaloliddin Manguberdi qaysi davlat sarkardasi bo‘lgan?", "variantlar": ["Xorazmshohlar", "Somoniylar", "Temuriylar"], "javob": "Xorazmshohlar"},
-        {"savol": "Mirzo Ulug‘bek rasadxonasi qaysi shaharda barpo etilgan?", "variantlar": ["Samarqand", "Buxoro", "Xiva"], "javob": "Samarqand"},
-        {"savol": "Alisher Navoiy qaysi asrda yashab ijod qilgan?", "variantlar": ["XV asr", "XIV asr", "XVI asr"], "javob": "XV asr"},
-        {"savol": "Zahiriddin Muhammad Bobur qaysi sulolaga asos solgan?", "variantlar": ["Boburiylar", "Shayboniylar", "G‘aznaviylar"], "javob": "Boburiylar"},
-        {"savol": "Buyuk Ipak yo‘li qaysi qit’alarni bog‘lagan?", "variantlar": ["Osiyo va Yevropa", "Afrika va Osiyo", "Amerika va Yevropa"], "javob": "Osiyo va Yevropa"},
-        {"savol": "Abu Ali ibn Sino qaysi soha rivojiga ulkan hissa qo‘shgan?", "variantlar": ["Tibbiyot", "Geografiya", "Astronomiya"], "javob": "Tibbiyot"}
-    ],
-    "matematika": [
-        {"savol": "2 + 2 * 2 amalini hisoblang:", "variantlar": ["6", "8", "4"], "javob": "6"},
-        {"savol": "Tomoni 6 sm ga teng kvadratning yuzini toping:", "variantlar": ["36 sm²", "24 sm²", "12 sm²"], "javob": "36 sm²"},
-        {"savol": "100 sonining 5 foizi nechaga teng?", "variantlar": ["5", "10", "50"], "javob": "5"},
-        {"savol": "Bir kunda necha soat bor?", "variantlar": ["24 soat", "12 soat", "48 soat"], "javob": "24 soat"},
-        {"savol": "Eng kichik tub son qaysi?", "variantlar": ["2", "1", "3"], "javob": "2"},
-        {"savol": "To‘g‘ri to‘rtburchakning nechta burchagi bor?", "variantlar": ["4 ta", "3 ta", "6 ta"], "javob": "4 ta"},
-        {"savol": "50 sonining yarmi nechchi bo‘ladi?", "variantlar": ["25", "20", "15"], "javob": "25"}
-    ]
+    # BOLALAR UCHUN SAVOLLAR (Osonroq)
+    "bolalar": {
+        "tarix": [
+            {"savol": "Amir Temur qachon tavallud topgan?", "variantlar": ["1336-yil", "1340-yil", "1370-yil"], "javob": "1336-yil"},
+            {"savol": "Jaloliddin Manguberdi qaysi davlat sarkardasi bo‘lgan?", "variantlar": ["Xorazmshohlar", "Somoniylar", "Temuriylar"], "javob": "Xorazmshohlar"},
+            {"savol": "Mirzo Ulug‘bek rasadxonasi qaysi shaharda barpo etilgan?", "variantlar": ["Samarqand", "Buxoro", "Xiva"], "javob": "Samarqand"},
+            {"savol": "Alisher Navoiy qaysi asrda yashab ijod qilgan?", "variantlar": ["XV asr", "XIV asr", "XVI asr"], "javob": "XV asr"},
+            {"savol": "Abu Ali ibn Sino qaysi soha rivojiga ulkan hissa qo‘shgan?", "variantlar": ["Tibbiyot", "Geografiya", "Astronomiya"], "javob": "Tibbiyot"}
+        ],
+        "matematika": [
+            {"savol": "2 + 2 * 2 amalini hisoblang:", "variantlar": ["6", "8", "4"], "javob": "6"},
+            {"savol": "Tomoni 6 sm ga teng kvadratning yuzini toping:", "variantlar": ["36 sm²", "24 sm²", "12 sm²"], "javob": "36 sm²"},
+            {"savol": "100 sonining 5 foizi nechaga teng?", "variantlar": ["5", "10", "50"], "javob": "5"},
+            {"savol": "Bir kunda necha soat bor?", "variantlar": ["24 soat", "12 soat", "48 soat"], "javob": "24 soat"},
+            {"savol": "To‘g‘ri to‘rtburchakning nechta burchagi bor?", "variantlar": ["4 ta", "3 ta", "6 ta"], "javob": "4 ta"}
+        ]
+    },
+    # KATTALAR UCHUN SAVOLLAR (Qiyinroq va qiziqarli)
+    "kattalar": {
+        "tarix": [
+            {"savol": "O‘zbekiston Respublikasi Konstitutsiyasi qachon qabul qilingan?", "variantlar": ["1992-yil 8-dekabr", "1991-yil 1-sentyabr", "1993-yil 18-noyabr"], "javob": "1992-yil 8-dekabr"},
+            {"savol": "Boburnoma asari dastlab qaysi tilda yozilgan?", "variantlar": ["Turkiy (Eski o‘zbek)", "Forsiy", "Arabiy"], "javob": "Turkiy (Eski o‘zbek)"},
+            {"savol": "Buyuk Ipak yo‘li qaysi asrlarda eng gullab-yashnagan?", "variantlar": ["Miloddan avvalgi II - Milodiy XIV", "Milodiy X - XVII asrlar", "Faqat Temuriylar davrida"], "javob": "Miloddan avvalgi II - Milodiy XIV"},
+            {"savol": "Somoniylar davlatining poytaxti qaysi shahar bo‘lgan?", "variantlar": ["Buxoro", "Samarqand", "Marv"], "javob": "Buxoro"}
+        ],
+        "mantiq": [
+            {"savol": "Qaysi oydan 28 kun bor?", "variantlar": ["Hamma oyda", "Faqat Fevralda", "Hech birida"], "javob": "Hamma oyda"},
+            {"savol": "Elektr poyezd janubdan shimolga yursa, tutuni qayerga uchadi?", "variantlar": ["Tutuni bo‘lmaydi", "Shimolga", "Janubga"], "javob": "Tutuni bo‘lmaydi"},
+            {"savol": "Bir kishi yomg‘irda soyabonsiz qoldi, ammo birorta sochi ho‘l bo‘lmadi. Nega?", "variantlar": ["Chunki u kal edi", "Yomg‘ir yog‘madi", "Bosh kiyimi bor edi"], "javob": "Chunki u kal edi"}
+        ]
+    }
 }
 
 # ==================== FSM HOLATLARI ====================
 class TestHolati(StatesGroup):
+    toifa_tanlash = State()
     fan_tanlash = State()
     test_yechish = State()
 
-# ==================== ASINXRON BAZA AMALLARI ====================
+# ==================== BAZA AMALLARI ====================
 async def init_db():
     async with aiosqlite.connect(DB_NAME) as db:
         await db.execute("""
@@ -157,14 +171,9 @@ async def hisobot_olish():
         "hafta_3": hafta_3,
     }
 
-# ==================== YORDAMCHI VIZUALLAR (QR VA EXCEL) ====================
+# ==================== VIZUALLAR (QR VA EXCEL) ====================
 def qr_kod_yaratish(havola: str) -> BufferedInputFile:
-    qr = qrcode.QRCode(
-        version=1,
-        error_correction=qrcode.constants.ERROR_CORRECT_M,
-        box_size=10,
-        border=2
-    )
+    qr = qrcode.QRCode(box_size=10, border=2)
     qr.add_data(havola)
     qr.make(fit=True)
     img = qr.make_image(fill_color="black", back_color="white")
@@ -218,10 +227,21 @@ async def generate_excel_report() -> io.BytesIO:
     return file_stream
 
 # ==================== TUGMALAR ====================
-def fanlar_klaviaturasi():
+def toifalar_klaviaturasi():
     builder = InlineKeyboardBuilder()
-    builder.button(text="📚 Tarix", callback_data="fan:tarix")
-    builder.button(text="📐 Matematika", callback_data="fan:matematika")
+    builder.button(text="👶 Bolalar uchun", callback_data="toifa:bolalar")
+    builder.button(text="👨‍🦰 Kattalar uchun", callback_data="toifa:kattalar")
+    builder.adjust(2)
+    return builder.as_markup()
+
+def fanlar_klaviaturasi(toifa: str):
+    builder = InlineKeyboardBuilder()
+    if toifa == "bolalar":
+        builder.button(text="📚 Tarix", callback_data="fan:tarix")
+        builder.button(text="📐 Matematika", callback_data="fan:matematika")
+    else:
+        builder.button(text="📜 Tarix", callback_data="fan:tarix")
+        builder.button(text="💡 Mantiqiy savollar", callback_data="fan:mantiq")
     builder.adjust(2)
     return builder.as_markup()
 
@@ -232,13 +252,13 @@ def savol_klaviaturasi(variantlar: list):
     builder.adjust(1)
     return builder.as_markup()
 
-# ==================== HANDLERLAR ====================
+# ==================== START VA KASSIR SCANER ====================
 @dp.message(CommandStart())
 async def start_buyrugi(message: types.Message, command: CommandObject, state: FSMContext):
     await state.clear()
     args = command.args
 
-    # 1. KASSIR QR-KODNI SKANERLANGANDA:
+    # 1. KASSIR QR-KODNI TEKSHIRGANDA:
     if args and args.startswith("CH_"):
         if not await is_kassir(message.from_user.id):
             await message.answer("⚠️ Bu QR-kod faqat kassirlar tomonidan skanerlanishi mumkin!")
@@ -265,7 +285,7 @@ async def start_buyrugi(message: types.Message, command: CommandObject, state: F
             await message.answer("🚫 Bunday chegirma kodi topilmadi.")
         return
 
-    # 2. TAKLIF HAVOLASI ORQALI KASSIR ULANGANDA:
+    # 2. KASSIR TAKLIF LINKINI BOSGANDA:
     if args and args.startswith("kassir_"):
         token = args.replace("kassir_", "")
         async with aiosqlite.connect(DB_NAME) as db:
@@ -280,7 +300,7 @@ async def start_buyrugi(message: types.Message, command: CommandObject, state: F
                 )
                 await db.commit()
 
-                await message.answer("🎉 <b>Tabriklaymiz! Siz kassir sifatida tizimga ulandingiz.</b>\nEndi xaridorlar QR-kodini kamerangiz orqali tekshirishingiz mumkin.", parse_mode="HTML")
+                await message.answer("🎉 <b>Tabriklaymiz! Siz kassir sifatida ulandingiz.</b>\nEndi mijozlarning QR-kodini bemalol tekshirishingiz mumkin.", parse_mode="HTML")
                 await bot.send_message(
                     chat_id=BOSH_ADMIN_ID,
                     text=f"🔔 <b>Yangi kassir ulandi:</b> {message.from_user.full_name} (ID: <code>{message.from_user.id}</code>)",
@@ -288,32 +308,64 @@ async def start_buyrugi(message: types.Message, command: CommandObject, state: F
                 )
                 return
             else:
-                await message.answer("❌ Ushbu taklif havolasi eskirgan yoki ishlatilgan!")
+                await message.answer("❌ Ushbu taklif havolasi eskirgan yoki avval ishlatilgan!")
                 return
 
-    # 3. ODDIY FOYDALANUVCHIGA TEST BOSHLANISHI:
+    # 3. ODDIY FOYDALANUVCHIGA: TOIFA TANLASH
     await message.answer(
-        "👋 <b>Do‘konimiz viktorinasiga xush kelibsiz!</b>\n\n"
-        "3 ta savoldan iborat qiziqarli testni yeching va chegirmaga ega bo‘ling:\n"
-        "• 3 ta to‘g‘ri javob ➡️ <b>5% chegirma</b>\n"
-        "• 2 ta to‘g‘ri javob ➡️ <b>3% chegirma</b>\n\n"
-        "Boshlash uchun fanni tanlang:",
-        reply_markup=fanlar_klaviaturasi(),
+        "👋 <b>Do‘konimiz viktorina botiga xush kelibsiz!</b>\n\n"
+        "Kim uchun test topshirmoqchisiz? Tanlang:",
+        reply_markup=toifalar_klaviaturasi(),
         parse_mode="HTML"
     )
+    await state.set_state(TestHolati.toifa_tanlash)
+
+# ==================== TOIFA TANLANGANDA (BOLALAR / KATTALAR) ====================
+# AYNAN SHU HANDLER YO'QLIGI UCHUN BOTINGIZ QOTIB QOLAYOTGAN EDI:
+@dp.callback_query(F.data.startswith("toifa:"))
+async def toifa_tanlandi(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer() # Qotishni darhol to'xtatadi
+    
+    toifa = callback.data.split(":")[1] # "bolalar" yoki "kattalar"
+    await state.update_data(tanlangan_toifa=toifa)
     await state.set_state(TestHolati.fan_tanlash)
 
-# ==================== TEST JARAYONI ====================
+    matn = (
+        "👶 <b>Bolalar tanlovi:</b>\n"
+        "3 ta savoldan iborat qiziqarli test!\n"
+        "• 3 ta to‘g‘ri javob ➡️ <b>5% chegirma</b>\n"
+        "• 2 ta to‘g‘ri javob ➡️ <b>3% chegirma</b>\n\n"
+        "Fanni tanlang:"
+    ) if toifa == "bolalar" else (
+        "👨‍🦰 <b>Kattalar tanlovi:</b>\n"
+        "3 ta qiziqarli mantiqiy va tarixiy savollar!\n"
+        "Barcha savollarga to‘g‘ri javob berib, maxsus vaucherga ega bo‘ling!\n\n"
+        "Yo‘nalishni tanlang:"
+    )
+
+    await callback.message.edit_text(
+        text=matn,
+        reply_markup=fanlar_klaviaturasi(toifa),
+        parse_mode="HTML"
+    )
+
+# ==================== FAN TANLANGANDA TESTNI BOSHLASH ====================
 @dp.callback_query(F.data.startswith("fan:"))
 async def fan_tanlandi(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
-    await state.clear()
 
+    data = await state.get_data()
+    toifa = data.get("tanlangan_toifa", "bolalar")
     fan_nomi = callback.data.split(":")[1]
-    if fan_nomi not in SAVOLLAR_BANKI:
+
+    # Savollarni toifa va fanga qarab olish
+    savollar_royxati = SAVOLLAR_BANKI.get(toifa, {}).get(fan_nomi, [])
+    if not savollar_royxati:
+        await callback.message.answer("Savollar topilmadi. Qaytadan /start bosing.")
         return
 
-    tanlangan_savollar = random.sample(SAVOLLAR_BANKI[fan_nomi], 3)
+    # 3 ta tasodifiy savolni tanlash
+    tanlangan_savollar = random.sample(savollar_royxati, min(3, len(savollar_royxati)))
     tayyor_savollar = []
     for s in tanlangan_savollar:
         variantlar = list(s["variantlar"])
@@ -325,16 +377,15 @@ async def fan_tanlandi(callback: types.CallbackQuery, state: FSMContext):
         })
 
     await state.set_state(TestHolati.test_yechish)
-    await state.set_data({
-        "joriy_fan": fan_nomi,
-        "savollar": tayyor_savollar,
-        "savol_indeksi": 0,
-        "togri_javoblar": 0
-    })
+    await state.update_data(
+        joriy_fan=fan_nomi,
+        savollar=tayyor_savollar,
+        savol_indeksi=0,
+        togri_javoblar=0
+    )
 
     birinchi_savol = tayyor_savollar[0]
-    
-    # Eski tugmalar aralashmasligi uchun avvalgisini o'chirib, toza yangi xabar beramiz
+
     try:
         await callback.message.delete()
     except Exception:
@@ -346,17 +397,19 @@ async def fan_tanlandi(callback: types.CallbackQuery, state: FSMContext):
         parse_mode="HTML"
     )
 
+# ==================== JAVOBNI TEKSHIRISH VA NATIJA ====================
 @dp.callback_query(TestHolati.test_yechish, F.data.startswith("javob:"))
 async def javob_tekshirish(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
     foydalanuvchi_javobi = callback.data.replace("javob:", "")
 
     data = await state.get_data()
-    if "savollar" not in data or not data["savollar"]:
-        await callback.message.answer("⚠️ Sessiya eskirgan. Iltimos, /start bosing.")
+    if "savollar" not in data:
+        await callback.message.answer("⚠️ Sessiya eskirgan. Qayta boshlang: /start")
         await state.clear()
         return
 
+    toifa = data.get("tanlangan_toifa", "bolalar")
     fan = data.get("joriy_fan")
     savollar = data.get("savollar")
     indeks = data.get("savol_indeksi", 0)
@@ -380,34 +433,32 @@ async def javob_tekshirish(callback: types.CallbackQuery, state: FSMContext):
         user_id = callback.from_user.id
         await state.clear()
 
-        # Eski xabarni o'chirib tashlaymiz
         try:
             await callback.message.delete()
         except Exception:
             pass
 
+        # G'oliblik sharti: Kamida 2 ta to'g'ri javob
         if togri_soni >= 2:
             foiz = 5 if togri_soni == 3 else 3
             unikal_kod = f"CH_{foiz}_{user_id}_{random.randint(1000, 9999)}"
             await kod_saqlash(unikal_kod, user_id, foiz)
 
-            # QR-kod havolasi (Telegram Deep Link)
             skaner_havolasi = f"https://t.me/{BOT_USERNAME}?start={unikal_kod}"
             qr_rasm = qr_kod_yaratish(skaner_havolasi)
 
             matn = (
-                f"🎉 <b>Tabriklaymiz! Siz {fan.upper()} fanidan {togri_soni} ta to‘g‘ri javob berdingiz!</b>\n\n"
-                f"Sizga barcha mahsulotlar uchun <b>{foiz}% lik chegirma</b> berildi.\n\n"
+                f"🎉 <b>Tabriklaymiz! Siz {togri_soni} ta to‘g‘ri javob berdingiz!</b>\n\n"
+                f"Sizga barcha mahsulotlar uchun <b>{foiz}% lik chegirma</b> vaucheri berildi.\n\n"
                 f"💰 <b>Xarid namunalari:</b>\n"
                 f"• 10 000 so‘mlik xarid ➡️ <b>{10000 - (10000 * foiz // 100)} so‘m</b>\n"
                 f"• 40 000 so‘mlik xarid ➡️ <b>{40000 - (40000 * foiz // 100)} so‘m</b>\n\n"
                 f"🎟 <b>Vaucher kodi:</b> <code>{unikal_kod}</code>\n"
-                f"📲 Do‘konga borganingizda yuqoridagi <b>QR-kodni</b> kassirga ko‘rsating!\n"
+                f"📲 Do‘konga borganingizda ushbu <b>QR-kodni</b> kassirga ko‘rsating!\n"
                 f"<i>(Vaucher faqat 1 marta amal qiladi)</i>"
             )
 
             try:
-                # QR-kod rasm ko'rinishida yuboriladi
                 await bot.send_photo(
                     chat_id=user_id,
                     photo=qr_rasm,
@@ -415,10 +466,9 @@ async def javob_tekshirish(callback: types.CallbackQuery, state: FSMContext):
                     parse_mode="HTML"
                 )
             except Exception as e:
-                # Agar rasm jo'natishda xatolik bo'lsa, hech bo'lmasa matnning o'zi boradi
                 await bot.send_message(
                     chat_id=user_id,
-                    text=f"{matn}\n\n⚠️ <i>QR-kod yuklashda xatolik: {e}</i>",
+                    text=f"{matn}\n\n⚠️ QR rasm yuborishda xato: {e}",
                     parse_mode="HTML"
                 )
         else:
@@ -426,14 +476,12 @@ async def javob_tekshirish(callback: types.CallbackQuery, state: FSMContext):
                 chat_id=user_id,
                 text=(
                     f"Siz {togri_soni} ta to‘g‘ri javob berdingiz.\n"
-                    f"Chegirmaga ega bo‘lish uchun kamida 2 ta to‘g‘ri javob kerak edi.\n\n"
-                    f"Qaytadan urinib ko‘ring: /start"
+                    f"Chegirmaga ega bo‘lish uchun kamida 2 ta to‘g‘ri javob berish lozim.\n\n"
+                    f"Qayta urinish: /start"
                 )
             )
 
-# ==================== KASSIRLARNI BELGILASH VA BOSHQARISH (FAQAT ADMIN) ====================
-
-# 1. ID orqali kassir qo'shish: /kassir_qosh 543216789 Jasur
+# ==================== KASSIRNI BOSHQARISH VA STATISTIKA ====================
 @dp.message(Command("kassir_qosh"))
 async def kassir_qolda_qoshish(message: types.Message):
     if message.from_user.id != BOSH_ADMIN_ID:
@@ -441,35 +489,22 @@ async def kassir_qolda_qoshish(message: types.Message):
 
     qismlar = message.text.strip().split(maxsplit=2)
     if len(qismlar) < 3:
-        await message.answer(
-            "⚠️ <b>Format noto‘g‘ri!</b>\nNamuna: <code>/kassir_qosh 543216789 Sardor</code>",
-            parse_mode="HTML"
-        )
+        await message.answer("⚠️ Namuna: <code>/kassir_qosh 543216789 Jasur</code>", parse_mode="HTML")
         return
 
     try:
         yangi_kassir_id = int(qismlar[1])
         ism = qismlar[2]
     except ValueError:
-        await message.answer("⚠️ ID raqam faqat sonlardan iborat bo‘lishi kerak!")
+        await message.answer("⚠️ ID raqam faqat sondan iborat bo‘lsin!")
         return
 
     async with aiosqlite.connect(DB_NAME) as db:
-        await db.execute(
-            "INSERT OR REPLACE INTO kassirlar (user_id, ism) VALUES (?, ?)",
-            (yangi_kassir_id, ism)
-        )
+        await db.execute("INSERT OR REPLACE INTO kassirlar (user_id, ism) VALUES (?, ?)", (yangi_kassir_id, ism))
         await db.commit()
 
-    await message.answer(
-        f"✅ <b>Kassir muvaffaqiyatli belgilandi!</b>\n\n"
-        f"👤 Xodim: <b>{ism}</b>\n"
-        f"🆔 ID: <code>{yangi_kassir_id}</code>\n"
-        f"Endi ushbu shaxs xaridorlarning QR-kodlarini tekshira oladi.",
-        parse_mode="HTML"
-    )
+    await message.answer(f"✅ Kassir belgilandi:\n👤 <b>{ism}</b> (ID: <code>{yangi_kassir_id}</code>)", parse_mode="HTML")
 
-# 2. Kassirni vazifasidan o'chirish: /kassir_ochir 543216789
 @dp.message(Command("kassir_ochir"))
 async def kassir_ochirish(message: types.Message):
     if message.from_user.id != BOSH_ADMIN_ID:
@@ -483,35 +518,14 @@ async def kassir_ochirish(message: types.Message):
     try:
         ochiriladigan_id = int(qismlar[1])
     except ValueError:
-        await message.answer("⚠️ ID raqam faqat sonlardan iborat bo‘lishi kerak!")
         return
 
     async with aiosqlite.connect(DB_NAME) as db:
         await db.execute("DELETE FROM kassirlar WHERE user_id = ?", (ochiriladigan_id,))
         await db.commit()
 
-    await message.answer(f"🗑 Kassir (ID: <code>{ochiriladigan_id}</code>) muvaffaqiyatli o‘chirildi!", parse_mode="HTML")
+    await message.answer(f"🗑 Kassir (ID: <code>{ochiriladigan_id}</code>) o‘chirildi!", parse_mode="HTML")
 
-# 3. Havola orqali kassir qo'shish (1 martalik link yaratish): /yangi_kassir
-@dp.message(Command("yangi_kassir"))
-async def kassir_taklif_linki(message: types.Message):
-    if message.from_user.id != BOSH_ADMIN_ID:
-        return
-
-    token = secrets.token_hex(8)
-    async with aiosqlite.connect(DB_NAME) as db:
-        await db.execute("INSERT INTO takliflar (token) VALUES (?)", (token,))
-        await db.commit()
-
-    havola = f"https://t.me/{BOT_USERNAME}?start=kassir_{token}"
-    await message.answer(
-        f"🔗 <b>Kassir uchun bir martalik taklif havolasi:</b>\n\n"
-        f"<code>{havola}</code>\n\n"
-        f"Ushbu havolani xodimingizga yuboring. U bosib <b>Start</b> qilishi bilan avtomatik kassirga aylanadi.",
-        parse_mode="HTML"
-    )
-
-# 4. Ulangan barcha kassirlarni ko'rish: /kassirlar
 @dp.message(Command("kassirlar"))
 async def kassirlar_royxati(message: types.Message):
     if message.from_user.id != BOSH_ADMIN_ID:
@@ -522,7 +536,7 @@ async def kassirlar_royxati(message: types.Message):
             kassirlar = await cursor.fetchall()
 
     if not kassirlar:
-        await message.answer("Hozircha birorta ham kassir ulanmagan.")
+        await message.answer("Hozircha hech qanday kassir ulanmagan.")
         return
 
     matn = "📋 <b>Ulangan kassirlar ro‘yxati:</b>\n\n"
@@ -530,7 +544,6 @@ async def kassirlar_royxati(message: types.Message):
         matn += f"• <b>{ism}</b> (ID: <code>{kid}</code>) — <i>{vaqt}</i>\n"
     await message.answer(matn, parse_mode="HTML")
 
-# ==================== KASSIRLAR VA ADMIN STATISTIKASI ====================
 @dp.message(Command("statistika"))
 async def statistika_handler(message: types.Message):
     if not await is_kassir(message.from_user.id):
@@ -542,16 +555,14 @@ async def statistika_handler(message: types.Message):
         "📊 <b>DO‘KON CHEGIRMALAR STATISTIKASI</b>\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n\n"
         "📅 <b>BUGUNGI NATIJA:</b>\n"
-        f"• Ishlatilgan chegirmalar: <b>{stat['bugun_jami']} ta</b>\n"
+        f"• Ishlatilgan vaucherlar: <b>{stat['bugun_jami']} ta</b>\n"
         f"  └ 5% lik: <b>{stat['bugun_5']} ta</b>\n"
         f"  └ 3% lik: <b>{stat['bugun_3']} ta</b>\n\n"
         "🗓 <b>OXIRGI 7 KUN (HAFTALIK):</b>\n"
-        f"• Ishlatilgan chegirmalar: <b>{stat['hafta_jami']} ta</b>\n"
-        f"  └ 5% lik: <b>{stat['hafta_5']} ta</b>\n"
-        f"  └ 3% lik: <b>{stat['hafta_3']} ta</b>\n\n"
+        f"• Ishlatilgan vaucherlar: <b>{stat['hafta_jami']} ta</b>\n\n"
         "📦 <b>UMUMIY BAZA:</b>\n"
         f"• Berilgan jami vaucherlar: <b>{stat['jami_berilgan']} ta</b>\n"
-        f"• Hali ishlatilmaganlar: <b>{stat['hali_ishlatilmagan']} ta</b>\n"
+        f"• Hali xarid qilinmaganlar: <b>{stat['hali_ishlatilmagan']} ta</b>\n"
         "━━━━━━━━━━━━━━━━━━━━━━"
     )
     await message.answer(matn, parse_mode="HTML")
@@ -567,10 +578,10 @@ async def excel_handler(message: types.Message):
     fayl = BufferedInputFile(file=stream.getvalue(), filename="vaucherlar_hisoboti.xlsx")
     await message.answer_document(
         document=fayl,
-        caption="📊 <b>Barcha vaucherlar bazasi Excel formatida tayyor.</b>"
+        caption="📊 <b>Barcha vaucherlar bazasi Excel faylda tayyor.</b>"
     )
 
-# ==================== HAR KUNI SOAT 21:00 DA AVTO-HISOBOT ====================
+# ==================== KUNLIK AVTO-HISOBOT (21:00) ====================
 async def kunlik_avto_hisobot():
     stat = await hisobot_olish()
     xabar = (
@@ -579,7 +590,7 @@ async def kunlik_avto_hisobot():
         f"📅 Bugun do‘konda <b>{stat['bugun_jami']} ta</b> chegirma ishlatildi:\n"
         f"• 5% lik: <b>{stat['bugun_5']} ta</b>\n"
         f"• 3% lik: <b>{stat['bugun_3']} ta</b>\n\n"
-        f"Hali xarid qilinmagan faol vaucherlar: <b>{stat['hali_ishlatilmagan']} ta</b>\n"
+        f"Faol kutayotgan vaucherlar: <b>{stat['hali_ishlatilmagan']} ta</b>\n"
         "━━━━━━━━━━━━━━━━━━━━━━"
     )
     try:
