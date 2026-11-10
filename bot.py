@@ -6,10 +6,10 @@ import random
 import sqlite3
 import asyncio
 import logging
+import aiohttp
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import CommandStart
 from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
-import google.generativeai as genai
 
 # ==========================================
 # 1. SOZLAMALAR (Railway Variables dan o'qiydi)
@@ -18,15 +18,6 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 logging.basicConfig(level=logging.INFO)
-
-# Gemini AI sozlash
-ai_model = None
-if GEMINI_API_KEY:
-    try:
-        genai.configure(api_key=GEMINI_API_KEY)
-        ai_model = genai.GenerativeModel("gemini-2.5-flash")
-    except Exception as e:
-        logging.warning(f"Gemini sozlashda xatolik: {e}")
 
 # ==========================================
 # 2. SQLITE BAZA (Eski savollar qayta tushmasligi uchun)
@@ -126,9 +117,7 @@ STATIC_QUESTIONS = {
 }
 
 def generate_dynamic_school_question() -> dict:
-    """Bolalar uchun maktab darsligi doirasida cheksiz dinamik savollar"""
     turi = random.choice(["perimetr", "yuza", "tezlik", "tenglama", "kasr"])
-    
     if turi == "perimetr":
         a = random.randint(6, 30)
         b = random.randint(3, a - 1)
@@ -179,9 +168,7 @@ def generate_dynamic_school_question() -> dict:
     return {"fan": fan, "savol": savol, "variantlar": var_list, "javob": javob}
 
 def generate_dynamic_adult_question() -> dict:
-    """Kattalar uchun mantiq va moliyaviy tahlil bo'yicha cheksiz dinamik savollar"""
     turi = random.choice(["foiz", "ketma_ketlik", "ish_unumdorligi"])
-    
     if turi == "foiz":
         summa = random.choice([200, 400, 500, 800, 1200, 1500])
         foiz = random.choice([10, 15, 20, 25, 30])
@@ -218,10 +205,10 @@ def generate_dynamic_adult_question() -> dict:
     return {"fan": fan, "savol": savol, "variantlar": var_list, "javob": javob}
 
 # ==========================================
-# 4. AI ORQALI CHEKSIZ YANGI SAVOL TUZISH
+# 4. GEMINI REST API ORQALI SAVOL TUZISH
 # ==========================================
 async def generate_ai_question(category: str, asked_list: list) -> dict | None:
-    if not ai_model:
+    if not GEMINI_API_KEY:
         return None
 
     recent_asked = asked_list[-30:]
@@ -260,17 +247,25 @@ async def generate_ai_question(category: str, asked_list: list) -> dict | None:
     }}
     """
 
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
+    payload = {"contents": [{"parts": [{"text": prompt}]}]}
+
     try:
-        response = await asyncio.to_thread(ai_model.generate_content, prompt)
-        match = re.search(r"\{.*\}", response.text, re.DOTALL)
-        if not match:
-            return None
-        data = json.loads(match.group(0))
-        if "savol" in data and "variantlar" in data and "javob" in data and len(data["variantlar"]) == 4:
-            if data["javob"] not in data["variantlar"]:
-                data["variantlar"][0] = data["javob"]
-            random.shuffle(data["variantlar"])
-            return data
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=payload, timeout=12) as resp:
+                if resp.status != 200:
+                    return None
+                res_json = await resp.json()
+                text_out = res_json["candidates"][0]["content"]["parts"][0]["text"]
+                match = re.search(r"\{.*\}", text_out, re.DOTALL)
+                if not match:
+                    return None
+                data = json.loads(match.group(0))
+                if "savol" in data and "variantlar" in data and "javob" in data and len(data["variantlar"]) == 4:
+                    if data["javob"] not in data["variantlar"]:
+                        data["variantlar"][0] = data["javob"]
+                    random.shuffle(data["variantlar"])
+                    return data
     except Exception as e:
         logging.warning(f"AI savol yaratishda xatolik: {e}")
     return None
@@ -278,14 +273,12 @@ async def generate_ai_question(category: str, asked_list: list) -> dict | None:
 async def get_fresh_question(user_id: int, category: str) -> dict:
     asked = get_user_asked_questions(user_id, category)
 
-    # 1. AI orqali yangi savol olish
     for _ in range(2):
         ai_q = await generate_ai_question(category, list(asked))
         if ai_q and ai_q["savol"] not in asked:
             mark_question_used(user_id, category, ai_q["savol"])
             return ai_q
 
-    # 2. Statik bazadan hali tushmagan savolni olish
     available_static = [q for q in STATIC_QUESTIONS[category] if q["savol"] not in asked]
     if available_static:
         chosen = random.choice(available_static).copy()
@@ -294,14 +287,12 @@ async def get_fresh_question(user_id: int, category: str) -> dict:
         mark_question_used(user_id, category, chosen["savol"])
         return chosen
 
-    # 3. Dinamik generator orqali yangi savol tuzish (ham bolalar, ham kattalar uchun)
     for _ in range(15):
         dyn_q = generate_dynamic_school_question() if category == "bolalar" else generate_dynamic_adult_question()
         if dyn_q["savol"] not in asked:
             mark_question_used(user_id, category, dyn_q["savol"])
             return dyn_q
 
-    # 4. Barcha savollar ishlatib bo'linganda tarixni tozalash
     with sqlite3.connect(DB_NAME) as conn:
         conn.execute("DELETE FROM asked_questions WHERE user_id = ? AND category = ?", (user_id, category))
         conn.commit()
