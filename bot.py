@@ -1,4 +1,6 @@
 import os
+import re
+import html
 import json
 import random
 import sqlite3
@@ -18,11 +20,13 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 logging.basicConfig(level=logging.INFO)
 
 # Gemini AI sozlash
+ai_model = None
 if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
-    ai_model = genai.GenerativeModel("gemini-2.5-flash")
-else:
-    ai_model = None
+    try:
+        genai.configure(api_key=GEMINI_API_KEY)
+        ai_model = genai.GenerativeModel("gemini-2.5-flash")
+    except Exception as e:
+        logging.warning(f"Gemini sozlashda xatolik: {e}")
 
 # ==========================================
 # 2. SQLITE BAZA (Eski savollar qayta tushmasligi uchun)
@@ -30,122 +34,182 @@ else:
 DB_NAME = "quiz_memory.db"
 
 def init_db():
-    conn = sqlite3.connect(DB_NAME)
-    cur = conn.cursor()
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS asked_questions (
-            user_id INTEGER,
-            category TEXT,
-            question_text TEXT,
-            PRIMARY KEY (user_id, question_text)
-        )
-    """)
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS scores (
-            user_id INTEGER PRIMARY KEY,
-            correct_count INTEGER DEFAULT 0,
-            total_count INTEGER DEFAULT 0
-        )
-    """)
-    conn.commit()
-    conn.close()
+    with sqlite3.connect(DB_NAME) as conn:
+        cur = conn.cursor()
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS asked_questions (
+                user_id INTEGER,
+                category TEXT,
+                question_text TEXT,
+                PRIMARY KEY (user_id, question_text)
+            )
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS scores (
+                user_id INTEGER PRIMARY KEY,
+                correct_count INTEGER DEFAULT 0,
+                total_count INTEGER DEFAULT 0
+            )
+        """)
+        conn.commit()
 
 def get_user_asked_questions(user_id: int, category: str) -> set:
-    conn = sqlite3.connect(DB_NAME)
-    cur = conn.cursor()
-    cur.execute(
-        "SELECT question_text FROM asked_questions WHERE user_id = ? AND category = ?",
-        (user_id, category)
-    )
-    rows = {row[0] for row in cur.fetchall()}
-    conn.close()
-    return rows
+    with sqlite3.connect(DB_NAME) as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT question_text FROM asked_questions WHERE user_id = ? AND category = ?",
+            (user_id, category)
+        )
+        return {row[0] for row in cur.fetchall()}
 
 def mark_question_used(user_id: int, category: str, question_text: str):
-    conn = sqlite3.connect(DB_NAME)
-    cur = conn.cursor()
-    cur.execute(
-        "INSERT OR IGNORE INTO asked_questions (user_id, category, question_text) VALUES (?, ?, ?)",
-        (user_id, category, question_text)
-    )
-    conn.commit()
-    conn.close()
+    with sqlite3.connect(DB_NAME) as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT OR IGNORE INTO asked_questions (user_id, category, question_text) VALUES (?, ?, ?)",
+            (user_id, category, question_text)
+        )
+        conn.commit()
 
 def update_score(user_id: int, is_correct: bool):
-    conn = sqlite3.connect(DB_NAME)
-    cur = conn.cursor()
-    cur.execute("INSERT OR IGNORE INTO scores (user_id, correct_count, total_count) VALUES (?, 0, 0)", (user_id,))
-    if is_correct:
-        cur.execute("UPDATE scores SET correct_count = correct_count + 1, total_count = total_count + 1 WHERE user_id = ?", (user_id,))
-    else:
-        cur.execute("UPDATE scores SET total_count = total_count + 1 WHERE user_id = ?", (user_id,))
-    conn.commit()
-    conn.close()
+    with sqlite3.connect(DB_NAME) as conn:
+        cur = conn.cursor()
+        cur.execute("INSERT OR IGNORE INTO scores (user_id, correct_count, total_count) VALUES (?, 0, 0)", (user_id,))
+        if is_correct:
+            cur.execute("UPDATE scores SET correct_count = correct_count + 1, total_count = total_count + 1 WHERE user_id = ?", (user_id,))
+        else:
+            cur.execute("UPDATE scores SET total_count = total_count + 1 WHERE user_id = ?", (user_id,))
+        conn.commit()
 
 def get_score(user_id: int) -> tuple:
-    conn = sqlite3.connect(DB_NAME)
-    cur = conn.cursor()
-    cur.execute("SELECT correct_count, total_count FROM scores WHERE user_id = ?", (user_id,))
-    row = cur.fetchone()
-    conn.close()
-    return row if row else (0, 0)
+    with sqlite3.connect(DB_NAME) as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT correct_count, total_count FROM scores WHERE user_id = ?", (user_id,))
+        row = cur.fetchone()
+        return row if row else (0, 0)
 
 # ==========================================
-# 3. ZAXIRA SAVOLLAR BAZASI
+# 3. KENGAYTIRILGAN ZAXIRA VA DINAMIK BAZA
 # ==========================================
 STATIC_QUESTIONS = {
     "bolalar": [
         {"fan": "Ona tili (5-sinf)", "savol": "Qaysi qatorda faqat ot so'z turkumiga oid so'zlar berilgan?", "variantlar": ["Kitob, maktab, daftar", "Chiroyli, katta, qizil", "O'qimoq, yozmoq, bormoq", "Tez, sekin, ko'p"], "javob": "Kitob, maktab, daftar"},
         {"fan": "Tabiiy fanlar (6-sinf)", "savol": "O'simliklarning quyosh nuri yordamida organik modda hosil qilish jarayoni nima deb ataladi?", "variantlar": ["Fotosintez", "Nafas olish", "Bug'lanish", "Changlanish"], "javob": "Fotosintez"},
         {"fan": "O'zbekiston tarixi (7-sinf)", "savol": "Mirzo Ulug'bek rasadxonasi qaysi shaharda bunyod etilgan?", "variantlar": ["Samarqand", "Buxoro", "Xiva", "Toshkent"], "javob": "Samarqand"},
-        {"fan": "Geografiya (6-sinf)", "savol": "Yer yuzidagi eng katta va eng chuqur okean qaysi?", "variantlar": ["Tinch okeani", "Atlantika okeani", "Hind okeani", "Shimoliy Muz okeani"], "javob": "Tinch okeani"}
+        {"fan": "Geografiya (6-sinf)", "savol": "Yer yuzidagi eng katta va eng chuqur okean qaysi?", "variantlar": ["Tinch okeani", "Atlantika okeani", "Hind okeani", "Shimoliy Muz okeani"], "javob": "Tinch okeani"},
+        {"fan": "Adabiyot (5-sinf)", "savol": "'Shum bola' qissasining muallifi kim?", "variantlar": ["G'afur G'ulom", "Abdulla Qodiriy", "Oybek", "Cho'lpon"], "javob": "G'afur G'ulom"},
+        {"fan": "Biologiya (8-sinf)", "savol": "Odam yuragi nechta kameradan (bo'lmachadan) iborat?", "variantlar": ["4 ta", "2 ta", "3 ta", "5 ta"], "javob": "4 ta"},
+        {"fan": "Fizika (7-sinf)", "savol": "Xalqaro birliklar tizimida (SI) kuchning o'lchov birligi nima?", "variantlar": ["Nyuton", "Joul", "Vatt", "Paskal"], "javob": "Nyuton"},
+        {"fan": "Kimyo (7-sinf)", "savol": "Suvning kimyoviy formulasi qanday?", "variantlar": ["H2O", "CO2", "NaCl", "O2"], "javob": "H2O"},
+        {"fan": "O'zbekiston tarixi (8-sinf)", "savol": "Amir Temur davlatining poytaxti qaysi shahar bo'lgan?", "variantlar": ["Samarqand", "Shahrisabz", "Buxoro", "Hirot"], "javob": "Samarqand"},
+        {"fan": "Matematika (5-sinf)", "savol": "Eng kichik tub son qaysi?", "variantlar": ["2", "1", "3", "0"], "javob": "2"},
+        {"fan": "Geografiya (7-sinf)", "savol": "Dunyodagi eng uzun daryo qaysi?", "variantlar": ["Nil", "Amazonka", "Amudaryo", "Yanszi"], "javob": "Nil"},
+        {"fan": "Adabiyot (9-sinf)", "savol": "Alisher Navoiyning 'Xamsa' asari nechta dostondan iborat?", "variantlar": ["5 ta", "4 ta", "6 ta", "7 ta"], "javob": "5 ta"},
+        {"fan": "Ona tili (6-sinf)", "savol": "Fe'lning nechta zamon shakli bor?", "variantlar": ["3 ta", "2 ta", "4 ta", "5 ta"], "javob": "3 ta"},
+        {"fan": "Biologiya (6-sinf)", "savol": "Hujayraning asosiy qismlari qaysilar?", "variantlar": ["Qobiq, sitoplazma, yadro", "Barg, poya, ildiz", "To'qima, organ, hujayra", "Suv, mineral tuz, havo"], "javob": "Qobiq, sitoplazma, yadro"},
+        {"fan": "Fizika (6-sinf)", "savol": "Moddaning nechta asosiy agregat holati mavjud?", "variantlar": ["3 ta (qattiq, suyuq, gaz)", "2 ta (qattiq, suyuq)", "4 ta", "5 ta"], "javob": "3 ta (qattiq, suyuq, gaz)"}
     ],
     "kattalar": [
         {"fan": "Konstitutsiya va Huquq", "savol": "O'zbekiston Respublikasi Konstitutsiyasiga ko'ra, davlat hokimiyatining birdan-bir manbai kim?", "variantlar": ["Xalq", "Parlament", "Vazirlar Mahkamasi", "Prezident"], "javob": "Xalq"},
         {"fan": "Jahon tarixi", "savol": "Qaysi davlat birinchi bo'lib qog'oz pullarni muomalaga kiritgan?", "variantlar": ["Xitoy", "Misr", "Rim imperiyasi", "Hindiston"], "javob": "Xitoy"},
-        {"fan": "Iqtisodiyot", "savol": "Pulning qadrsizlanishi va tovar hamda xizmatlar narxining umumiy o'sishi nima deyiladi?", "variantlar": ["Inflyatsiya", "Deflyatsiya", "Devalvatsiya", "Diversifikatsiya"], "javob": "Inflyatsiya"}
+        {"fan": "Iqtisodiyot", "savol": "Pulning qadrsizlanishi va tovar hamda xizmatlar narxining umumiy o'sishi nima deyiladi?", "variantlar": ["Inflyatsiya", "Deflyatsiya", "Devalvatsiya", "Diversifikatsiya"], "javob": "Inflyatsiya"},
+        {"fan": "Jinoyat huquqi", "savol": "Shaxsning aybdorligi qonunda belgilangan tartibda va sudning qonuniy kuchga kirgan hukmi bilan aniqlanmaguncha aybsiz hisoblanishi nima deyiladi?", "variantlar": ["Aybsizlik prezumpsiyasi", "Qonuniylik prinsipi", "Odil sudlov", "Insonparvarlik"], "javob": "Aybsizlik prezumpsiyasi"},
+        {"fan": "Xalqaro huquq", "savol": "Inson huquqlari umumjahon deklaratsiyasi BMT Bosh Assambleyasi tomonidan qachon qabul qilingan?", "variantlar": ["1948-yil 10-dekabr", "1945-yil 24-oktyabr", "1950-yil 1-iyun", "1966-yil 16-dekabr"], "javob": "1948-yil 10-dekabr"},
+        {"fan": "Geosiyosat", "savol": "Birlashgan Millatlar Tashkiloti (BMT) Xavfsizlik Kengashining nechta doimiy a'zosi bor?", "variantlar": ["5 ta", "7 ta", "10 ta", "15 ta"], "javob": "5 ta"},
+        {"fan": "Jahon adabiyoti", "savol": "'Jinoyat va jazo' romanining muallifi kim?", "variantlar": ["Fyodor Dostoyevskiy", "Lev Tolstoy", "Anton Chexov", "Nikolay Gogol"], "javob": "Fyodor Dostoyevskiy"},
+        {"fan": "Davlat moliyasi", "savol": "Davlat byudjeti xarajatlarining daromadlaridan oshib ketishi nima deb ataladi?", "variantlar": ["Byudjet taqchilligi (defitsiti)", "Byudjet profitsiti", "Balans", "Subvensiya"], "javob": "Byudjet taqchilligi (defitsiti)"},
+        {"fan": "Ma'muriy huquq", "savol": "Ma'muriy sud ishlarini yuritishda da'vogarning talablaridan voz kechishi yoki taraflarning kelishuvi qanday hujjat bilan rasmiylashtiriladi?", "variantlar": ["Sud ajrimi", "Sud hukmi", "Ma'muriy bayonnoma", "Taqdimnoma"], "javob": "Sud ajrimi"},
+        {"fan": "Fan va koinot", "savol": "Quyosh tizimidagi eng katta sayyora qaysi?", "variantlar": ["Yupiter", "Saturn", "Neptun", "Yer"], "javob": "Yupiter"},
+        {"fan": "Mantiq", "savol": "Agar 5 ta mashina 5 daqiqada 5 ta detal ishlab chiqarsa, 100 ta mashina 100 ta detalni necha daqiqada ishlab chiqaradi?", "variantlar": ["5 daqiqada", "100 daqiqada", "20 daqiqada", "50 daqiqada"], "javob": "5 daqiqada"},
+        {"fan": "Jahon geografiyasi", "savol": "Janubiy Amerika materigidagi eng katta davlat qaysi?", "variantlar": ["Braziliya", "Argentina", "Kolumbiya", "Peru"], "javob": "Braziliya"}
     ]
 }
 
-def generate_dynamic_school_math() -> dict:
-    sinf = random.choice([3, 4, 5, 6])
-    turi = random.choice(["perimetr", "yuza", "tezlik", "tenglama"])
+def generate_dynamic_school_question() -> dict:
+    """Bolalar uchun maktab darsligi doirasida cheksiz dinamik savollar"""
+    turi = random.choice(["perimetr", "yuza", "tezlik", "tenglama", "kasr"])
     
     if turi == "perimetr":
-        a = random.randint(6, 25)
+        a = random.randint(6, 30)
         b = random.randint(3, a - 1)
         togri = 2 * (a + b)
         savol = f"To'g'ri to'rtburchakning bo'yi {a} sm, eni esa {b} sm. Uning perimetrini toping."
-        fan = f"Matematika ({sinf}-sinf)"
+        fan = "Matematika (4-sinf)"
         birlik = " sm"
     elif turi == "yuza":
-        a = random.randint(4, 18)
-        b = random.randint(4, 15)
+        a = random.randint(4, 25)
+        b = random.randint(4, 20)
         togri = a * b
-        savol = f"Bo'yi {a} metr, eni {b} metr bo'lgan xonaning yuzini (kv.m) hisoblang."
-        fan = f"Matematika ({sinf}-sinf)"
+        savol = f"Bo'yi {a} metr, eni {b} metr bo'lgan to'g'ri to'rtburchak shaklidagi maydonning yuzini (kv.m) hisoblang."
+        fan = "Matematika (5-sinf)"
         birlik = " kv.m"
     elif turi == "tezlik":
-        v = random.choice([40, 50, 60, 70, 80])
-        t = random.randint(2, 5)
+        v = random.choice([45, 50, 60, 75, 80, 90])
+        t = random.randint(2, 6)
         togri = v * t
-        savol = f"Avtomobil {v} km/soat tezlik bilan {t} soatda qancha masofani bosib o'tadi?"
-        fan = f"Matematika (4-sinf)"
+        savol = f"Poyezd {v} km/soat tezlik bilan {t} soatda qancha masofani bosib o'tadi?"
+        fan = "Matematika (4-sinf)"
         birlik = " km"
+    elif turi == "kasr":
+        son = random.choice([60, 80, 100, 120, 150, 200, 240])
+        bolak = random.choice([2, 4, 5, 10])
+        togri = son // bolak
+        savol = f"{son} sonining 1/{bolak} qismi nechaga teng?"
+        fan = "Matematika (5-sinf)"
+        birlik = ""
     else:
-        x = random.randint(5, 20)
-        k = random.randint(2, 5)
-        c = random.randint(10, 30)
+        x = random.randint(4, 25)
+        k = random.randint(2, 7)
+        c = random.randint(8, 40)
         res = k * x + c
         togri = x
         savol = f"Tenglamani yeching: {k}x + {c} = {res}"
-        fan = f"Matematika (5-sinf)"
+        fan = "Matematika (6-sinf)"
         birlik = ""
 
     javob = f"{togri}{birlik}"
     variantlar = {javob}
     while len(variantlar) < 4:
-        xato = togri + random.choice([-10, -6, -4, -2, 2, 4, 6, 10])
+        xato = togri + random.choice([-12, -8, -5, -3, 3, 5, 8, 12, 15])
+        if xato > 0:
+            variantlar.add(f"{xato}{birlik}")
+            
+    var_list = list(variantlar)
+    random.shuffle(var_list)
+    return {"fan": fan, "savol": savol, "variantlar": var_list, "javob": javob}
+
+def generate_dynamic_adult_question() -> dict:
+    """Kattalar uchun mantiq va moliyaviy tahlil bo'yicha cheksiz dinamik savollar"""
+    turi = random.choice(["foiz", "ketma_ketlik", "ish_unumdorligi"])
+    
+    if turi == "foiz":
+        summa = random.choice([200, 400, 500, 800, 1200, 1500])
+        foiz = random.choice([10, 15, 20, 25, 30])
+        togri = int(summa * (1 + foiz / 100))
+        savol = f"Agar mahsulotning boshlang'ich narxi {summa} ming so'm bo'lib, narx {foiz}% ga oshirilsa, uning yangi narxi qancha bo'ladi?"
+        fan = "Iqtisodiyot va moliya"
+        birlik = " ming so'm"
+    elif turi == "ketma_ketlik":
+        bosh = random.randint(2, 12)
+        qadam = random.randint(3, 9)
+        ketma = [bosh + i * qadam for i in range(5)]
+        togri = ketma[4]
+        savol = f"Mantiqiy ketma-ketlikni davom ettiring: {ketma[0]}, {ketma[1]}, {ketma[2]}, {ketma[3]}, ...?"
+        fan = "Mantiqiy tahlil"
+        birlik = ""
+    else:
+        kun = random.choice([6, 8, 10, 12])
+        ishchi1 = random.choice([3, 4, 6])
+        ishchi2 = ishchi1 * 2
+        togri = kun // 2
+        savol = f"{ishchi1} ta mutaxassis loyihani {kun} kunda yakunlaydi. Shu tempda {ishchi2} ta mutaxassis bu loyihani necha kunda tugatadi?"
+        fan = "Mantiq va menejment"
+        birlik = " kunda"
+
+    javob = f"{togri}{birlik}"
+    variantlar = {javob}
+    while len(variantlar) < 4:
+        xato = togri + random.choice([-10, -5, -2, -1, 1, 2, 5, 10])
         if xato > 0:
             variantlar.add(f"{xato}{birlik}")
             
@@ -160,13 +224,13 @@ async def generate_ai_question(category: str, asked_list: list) -> dict | None:
     if not ai_model:
         return None
 
-    recent_asked = asked_list[-35:]
+    recent_asked = asked_list[-30:]
 
     if category == "bolalar":
         sinf = random.randint(1, 11)
         fan = random.choice([
             "Matematika", "Ona tili", "Adabiyot", "O'zbekiston tarixi",
-            "Tabiiy fanlar", "Biologiya", "Geografiya", "Fizika"
+            "Tabiiy fanlar", "Biologiya", "Geografiya", "Fizika", "Kimyo"
         ])
         rule = (
             f"Sen O'zbekiston umumta'lim maktablarining {sinf}-sinf '{fan}' darsligi bo'yicha test tuzuvchisan. "
@@ -175,7 +239,7 @@ async def generate_ai_question(category: str, asked_list: list) -> dict | None:
     else:
         mavzu = random.choice([
             "O'zbekiston qonunchiligi va huquq", "Jahon tarixi", "Mantiqiy fikrlash",
-            "Iqtisodiyot", "Jahon geografiyasi", "Fan va texnologiya"
+            "Iqtisodiyot va moliya", "Jahon geografiyasi", "Fan va texnologiya"
         ])
         rule = (
             f"Sen kattalar uchun '{mavzu}' yo'nalishida intellektual viktorina savolini tuzuvchisan. "
@@ -198,8 +262,10 @@ async def generate_ai_question(category: str, asked_list: list) -> dict | None:
 
     try:
         response = await asyncio.to_thread(ai_model.generate_content, prompt)
-        raw = response.text.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
-        data = json.loads(raw)
+        match = re.search(r"\{.*\}", response.text, re.DOTALL)
+        if not match:
+            return None
+        data = json.loads(match.group(0))
         if "savol" in data and "variantlar" in data and "javob" in data and len(data["variantlar"]) == 4:
             if data["javob"] not in data["variantlar"]:
                 data["variantlar"][0] = data["javob"]
@@ -212,12 +278,14 @@ async def generate_ai_question(category: str, asked_list: list) -> dict | None:
 async def get_fresh_question(user_id: int, category: str) -> dict:
     asked = get_user_asked_questions(user_id, category)
 
+    # 1. AI orqali yangi savol olish
     for _ in range(2):
         ai_q = await generate_ai_question(category, list(asked))
         if ai_q and ai_q["savol"] not in asked:
             mark_question_used(user_id, category, ai_q["savol"])
             return ai_q
 
+    # 2. Statik bazadan hali tushmagan savolni olish
     available_static = [q for q in STATIC_QUESTIONS[category] if q["savol"] not in asked]
     if available_static:
         chosen = random.choice(available_static).copy()
@@ -226,17 +294,17 @@ async def get_fresh_question(user_id: int, category: str) -> dict:
         mark_question_used(user_id, category, chosen["savol"])
         return chosen
 
-    if category == "bolalar":
-        for _ in range(10):
-            dyn_q = generate_dynamic_school_math()
-            if dyn_q["savol"] not in asked:
-                mark_question_used(user_id, category, dyn_q["savol"])
-                return dyn_q
+    # 3. Dinamik generator orqali yangi savol tuzish (ham bolalar, ham kattalar uchun)
+    for _ in range(15):
+        dyn_q = generate_dynamic_school_question() if category == "bolalar" else generate_dynamic_adult_question()
+        if dyn_q["savol"] not in asked:
+            mark_question_used(user_id, category, dyn_q["savol"])
+            return dyn_q
 
-    conn = sqlite3.connect(DB_NAME)
-    conn.execute("DELETE FROM asked_questions WHERE user_id = ? AND category = ?", (user_id, category))
-    conn.commit()
-    conn.close()
+    # 4. Barcha savollar ishlatib bo'linganda tarixni tozalash
+    with sqlite3.connect(DB_NAME) as conn:
+        conn.execute("DELETE FROM asked_questions WHERE user_id = ? AND category = ?", (user_id, category))
+        conn.commit()
     
     fallback = random.choice(STATIC_QUESTIONS[category]).copy()
     fallback["variantlar"] = fallback["variantlar"].copy()
@@ -248,7 +316,7 @@ async def get_fresh_question(user_id: int, category: str) -> dict:
 # 5. BOT KLAVIATURALARI VA HANDLERLARI
 # ==========================================
 if not BOT_TOKEN:
-    raise ValueError("BOT_TOKEN topilmadi! Railway Variables ga qo'shing.")
+    raise ValueError("BOT_TOKEN topilmadi! Railway Variables bo'limiga BOT_TOKEN qo'shing.")
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
@@ -279,34 +347,41 @@ def next_question_kb(category: str):
 @dp.message(CommandStart())
 async def cmd_start(message: types.Message):
     await message.answer(
-        "👋 **Assalomu alaykum! Intellektual savol-javob botiga xush kelibsiz!**\n\n"
-        "🎒 **Bolalar bo'limi** — faqat 1–11-sinf maktab darsliklari asosida.\n"
-        "🎓 **Kattalar bo'limi** — huquq, tarix, mantiq va zamonaviy fanlar asosida.\n\n"
-        "✨ *Savollar doimiy yangilanadi va sizga tushgan savol qayta takrorlanmaydi!*\n\n"
+        "👋 <b>Assalomu alaykum! Intellektual savol-javob botiga xush kelibsiz!</b>\n\n"
+        "🎒 <b>Bolalar bo'limi</b> — faqat 1–11-sinf maktab darsliklari asosida.\n"
+        "🎓 <b>Kattalar bo'limi</b> — huquq, tarix, mantiq va zamonaviy fanlar asosida.\n\n"
+        "✨ <i>Savollar doimiy yangilanadi va sizga tushgan savol qayta takrorlanmaydi!</i>\n\n"
         "Quyidagi bo'limlardan birini tanlang:",
         reply_markup=main_menu_kb(),
-        parse_mode="Markdown"
+        parse_mode="HTML"
     )
 
-async def send_new_question(chat_id: int, user_id: int, category: str):
-    wait_msg = await bot.send_message(chat_id, "⏳ *Yangi savol tayyorlanmoqda...*", parse_mode="Markdown")
+async def send_new_question(chat_id: int, user_id: int, category: str, edit_msg: types.Message = None):
+    if edit_msg:
+        wait_msg = await edit_msg.edit_text("⏳ <i>Yangi savol tayyorlanmoqda...</i>", parse_mode="HTML")
+    else:
+        wait_msg = await bot.send_message(chat_id, "⏳ <i>Yangi savol tayyorlanmoqda...</i>", parse_mode="HTML")
+
     q_data = await get_fresh_question(user_id, category)
     active_questions[user_id] = {
         "category": category,
         "data": q_data
     }
     
-    sarlavha = "🎒 **BOLALAR BO'LIMI (Maktab darsligi)**" if category == "bolalar" else "🎓 **KATTALAR BO'LIMI**"
+    sarlavha = "🎒 <b>BOLALAR BO'LIMI (Maktab darsligi)</b>" if category == "bolalar" else "🎓 <b>KATTALAR BO'LIMI</b>"
+    fan_safe = html.escape(str(q_data["fan"]))
+    savol_safe = html.escape(str(q_data["savol"]))
+
     text = (
         f"{sarlavha}\n"
-        f"📚 **Fan/Mavzu:** {q_data['fan']}\n\n"
-        f"❓ **Savol:** {q_data['savol']}"
+        f"📚 <b>Fan/Mavzu:</b> {fan_safe}\n\n"
+        f"❓ <b>Savol:</b> {savol_safe}"
     )
     
     await wait_msg.edit_text(
         text,
         reply_markup=build_question_kb(q_data["variantlar"], category),
-        parse_mode="Markdown"
+        parse_mode="HTML"
     )
 
 @dp.message(F.text == "🎒 Bolalar bo'limi (Maktab darsliklari)")
@@ -322,18 +397,18 @@ async def show_my_score(message: types.Message):
     correct, total = get_score(message.from_user.id)
     foiz = round((correct / total) * 100, 1) if total > 0 else 0
     await message.answer(
-        f"📊 **Sizning ko'rsatkichingiz:**\n\n"
-        f"✅ To'g'ri javoblar: **{correct} ta**\n"
-        f"📝 Jami javob berilgan savollar: **{total} ta**\n"
-        f"📈 Natija: **{foiz}%**",
-        parse_mode="Markdown"
+        f"📊 <b>Sizning ko'rsatkichingiz:</b>\n\n"
+        f"✅ To'g'ri javoblar: <b>{correct} ta</b>\n"
+        f"📝 Jami javob berilgan savollar: <b>{total} ta</b>\n"
+        f"📈 Natija: <b>{foiz}%</b>",
+        parse_mode="HTML"
     )
 
 @dp.callback_query(F.data.startswith("ans:"))
 async def handle_answer(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     if user_id not in active_questions:
-        await callback.answer("Bu savol eskirgan. Yangi savol tugmasini bosing!", show_alert=True)
+        await callback.answer("Bu savolga javob berilgan. Keyingi savol tugmasini bosing!", show_alert=True)
         return
 
     idx = int(callback.data.split(":")[1])
@@ -347,25 +422,30 @@ async def handle_answer(callback: types.CallbackQuery):
     
     update_score(user_id, is_correct)
 
+    sel_safe = html.escape(str(selected_option))
+    cor_safe = html.escape(str(correct_option))
+    fan_safe = html.escape(str(q_data["fan"]))
+    savol_safe = html.escape(str(q_data["savol"]))
+
     if is_correct:
-        result_text = f"✅ **Barakalla! Javobingiz to'g'ri:** {correct_option}"
+        result_text = f"✅ <b>Barakalla! Javobingiz to'g'ri:</b> {cor_safe}"
     else:
         result_text = (
-            f"❌ **Afsuski, noto'g'ri!**\n"
-            f"Siz tanladingiz: {selected_option}\n"
-            f"✅ **To'g'ri javob:** {correct_option}"
+            f"❌ <b>Afsuski, noto'g'ri!</b>\n"
+            f"Siz tanladingiz: {sel_safe}\n"
+            f"✅ <b>To'g'ri javob:</b> {cor_safe}"
         )
 
     updated_message = (
-        f"📚 **Fan/Mavzu:** {q_data['fan']}\n"
-        f"❓ **Savol:** {q_data['savol']}\n\n"
+        f"📚 <b>Fan/Mavzu:</b> {fan_safe}\n"
+        f"❓ <b>Savol:</b> {savol_safe}\n\n"
         f"{result_text}"
     )
 
     await callback.message.edit_text(
         updated_message,
         reply_markup=next_question_kb(category),
-        parse_mode="Markdown"
+        parse_mode="HTML"
     )
     await callback.answer()
 
@@ -373,14 +453,14 @@ async def handle_answer(callback: types.CallbackQuery):
 async def handle_next(callback: types.CallbackQuery):
     category = callback.data.split(":")[1]
     await callback.answer()
-    await send_new_question(callback.message.chat.id, callback.from_user.id, category)
+    await send_new_question(callback.message.chat.id, callback.from_user.id, category, edit_msg=callback.message)
 
 # ==========================================
 # 6. ISHGA TUSHIRISH
 # ==========================================
 async def main():
     init_db()
-    logging.info("Bot ishga tushdi!")
+    logging.info("Bot muvaffaqiyatli ishga tushdi!")
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
 
