@@ -12,7 +12,7 @@ import google.generativeai as genai
 # ==========================================
 # 1. SOZLAMALAR (Railway Variables yoki shu yerga yozing)
 # ==========================================
-BOT_TOKEN = os.getenv("BOT_TOKEN", "BU_YERGA_BOT_TOKEN_YOZING")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "9237388648:AAHqC1UHqbkMUFwEIW-vE59Oj990Zp2Ar4w")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "BU_YERGA_GEMINI_API_KEY_YOZING")
 
 logging.basicConfig(level=logging.INFO)
