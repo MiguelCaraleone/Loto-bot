@@ -10,15 +10,15 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
 import google.generativeai as genai
 
 # ==========================================
-# 1. SOZLAMALAR (Railway Variables yoki shu yerga yozing)
+# 1. SOZLAMALAR (Railway Variables dan o'qiydi)
 # ==========================================
-BOT_TOKEN = os.getenv("BOT_TOKEN", "9237388648:AAHqC1UHqbkMUFwEIW-vE59Oj990Zp2Ar4w")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "BU_YERGA_GEMINI_API_KEY_YOZING")
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 logging.basicConfig(level=logging.INFO)
 
 # Gemini AI sozlash
-if GEMINI_API_KEY and GEMINI_API_KEY != "BU_YERGA_GEMINI_API_KEY_YOZING":
+if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
     ai_model = genai.GenerativeModel("gemini-2.5-flash")
 else:
@@ -91,39 +91,25 @@ def get_score(user_id: int) -> tuple:
     return row if row else (0, 0)
 
 # ==========================================
-# 3. BOSHLANG'ICH VA ZAXIRA SAVOLLAR BAZASI
+# 3. ZAXIRA SAVOLLAR BAZASI
 # ==========================================
 STATIC_QUESTIONS = {
     "bolalar": [
         {"fan": "Ona tili (5-sinf)", "savol": "Qaysi qatorda faqat ot so'z turkumiga oid so'zlar berilgan?", "variantlar": ["Kitob, maktab, daftar", "Chiroyli, katta, qizil", "O'qimoq, yozmoq, bormoq", "Tez, sekin, ko'p"], "javob": "Kitob, maktab, daftar"},
         {"fan": "Tabiiy fanlar (6-sinf)", "savol": "O'simliklarning quyosh nuri yordamida organik modda hosil qilish jarayoni nima deb ataladi?", "variantlar": ["Fotosintez", "Nafas olish", "Bug'lanish", "Changlanish"], "javob": "Fotosintez"},
         {"fan": "O'zbekiston tarixi (7-sinf)", "savol": "Mirzo Ulug'bek rasadxonasi qaysi shaharda bunyod etilgan?", "variantlar": ["Samarqand", "Buxoro", "Xiva", "Toshkent"], "javob": "Samarqand"},
-        {"fan": "Geografiya (6-sinf)", "savol": "Yer yuzidagi eng katta va eng chuqur okean qaysi?", "variantlar": ["Tinch okeani", "Atlantika okeani", "Hind okeani", "Shimoliy Muz okeani"], "javob": "Tinch okeani"},
-        {"fan": "Adabiyot (5-sinf)", "savol": "'Shum bola' qissasining muallifi kim?", "variantlar": ["G'afur G'ulom", "Abdulla Qodiriy", "Oybek", "Cho'lpon"], "javob": "G'afur G'ulom"},
-        {"fan": "Biologiya (8-sinf)", "savol": "Odam yuragi nechta kameradan iborat?", "variantlar": ["4 ta", "2 ta", "3 ta", "5 ta"], "javob": "4 ta"},
-        {"fan": "Fizika (7-sinf)", "savol": "Xalqaro birliklar tizimida (SI) kuchning o'lchov birligi nima?", "variantlar": ["Nyuton", "Joul", "Vatt", "Paskal"], "javob": "Nyuton"},
-        {"fan": "Kimyo (7-sinf)", "savol": "Suvning kimyoviy formulasi qanday?", "variantlar": ["H2O", "CO2", "NaCl", "O2"], "javob": "H2O"},
-        {"fan": "O'zbekiston tarixi (8-sinf)", "savol": "Amir Temur davlatining poytaxti qaysi shahar bo'lgan?", "variantlar": ["Samarqand", "Шаhrisabz", "Buxoro", "Hirot"], "javob": "Samarqand"},
-        {"fan": "Matematika (5-sinf)", "savol": "Eng kichik tub son qaysi?", "variantlar": ["2", "1", "3", "0"], "javob": "2"},
-        {"fan": "Geografiya (7-sinf)", "savol": "Dunyodagi eng uzun daryo qaysi?", "variantlar": ["Nil", "unka (Amazonka)", "Amudaryo", "Missisipi"], "javob": "Nil"},
-        {"fan": "Adabiyot (9-sinf)", "savol": "Alisher Navoiyning 'Xamsa' asari nechta dostondan iborat?", "variantlar": ["5 ta", "4 ta", "6 ta", "7 ta"], "javob": "5 ta"}
+        {"fan": "Geografiya (6-sinf)", "savol": "Yer yuzidagi eng katta va eng chuqur okean qaysi?", "variantlar": ["Tinch okeani", "Atlantika okeani", "Hind okeani", "Shimoliy Muz okeani"], "javob": "Tinch okeani"}
     ],
     "kattalar": [
         {"fan": "Konstitutsiya va Huquq", "savol": "O'zbekiston Respublikasi Konstitutsiyasiga ko'ra, davlat hokimiyatining birdan-bir manbai kim?", "variantlar": ["Xalq", "Parlament", "Vazirlar Mahkamasi", "Prezident"], "javob": "Xalq"},
         {"fan": "Jahon tarixi", "savol": "Qaysi davlat birinchi bo'lib qog'oz pullarni muomalaga kiritgan?", "variantlar": ["Xitoy", "Misr", "Rim imperiyasi", "Hindiston"], "javob": "Xitoy"},
-        {"fan": "Iqtisodiyot", "savol": "Pulning qadrsizlanishi va tovar hamda xizmatlar narxining umumiy o'sishi nima deyiladi?", "variantlar": ["Inflyatsiya", "Deflyatsiya", "Devalvatsiya", "Diversifikatsiya"], "javob": "Inflyatsiya"},
-        {"fan": "Jinoyat huquqi", "savol": "Shaxsning aybdorligi qonunda belgilangan tartibda isbotlanmaguncha u aybsiz hisoblanishi qanday prinsip deyiladi?", "variantlar": ["Aybsizlik prezumpsiyasi", "Qonuniylik prinsipi", "Odil sudlov", "Insonparvarlik"], "javob": "Aybsizlik prezumpsiyasi"},
-        {"fan": "Mantiq va Fan", "savol": "Quyosh tizimidagi eng katta sayyora qaysi?", "variantlar": ["Yupiter", "Saturn", "Mars", "Neptun"], "javob": "Yupiter"},
-        {"fan": "Geosiyosat", "savol": "Birlashgan Millatlar Tashkiloti (BMT) Bosh qarorgohi qaysi shaharda joylashgan?", "variantlar": ["Nyu-York", "Jeneva", "Parij", "Vena"], "javob": "Nyu-York"},
-        {"fan": "Jahon adabiyoti", "savol": "'Urush va tinchlik' romanining muallifi kim?", "variantlar": ["Lev Tolstoy", "Fyodor Dostoyevskiy", "Anton Chexov", "Aleksandr Pushkin"], "javob": "Lev Tolstoy"},
-        {"fan": "Moliya va Huquq", "savol": "Davlat byudjeti daromadlari va xarajatlarining tengligi nima deb ataladi?", "variantlar": ["Byudjet balansi", "Byudjet defitsiti", "Byudjet profitsiti", "Dotatsiya"], "javob": "Byudjet balansi"}
+        {"fan": "Iqtisodiyot", "savol": "Pulning qadrsizlanishi va tovar hamda xizmatlar narxining umumiy o'sishi nima deyiladi?", "variantlar": ["Inflyatsiya", "Deflyatsiya", "Devalvatsiya", "Diversifikatsiya"], "javob": "Inflyatsiya"}
     ]
 }
 
 def generate_dynamic_school_math() -> dict:
-    """AI ishlamay qolgan holatda ham bolalarga maktab darsligidan cheksiz yangi misol/masala tuzuvchi funksiya"""
     sinf = random.choice([3, 4, 5, 6])
-    turi = random.choice(["perimetr", "yuza", "tenglama", "tezlik"])
+    turi = random.choice(["perimetr", "yuza", "tezlik", "tenglama"])
     
     if turi == "perimetr":
         a = random.randint(6, 25)
@@ -140,16 +126,16 @@ def generate_dynamic_school_math() -> dict:
         fan = f"Matematika ({sinf}-sinf)"
         birlik = " kv.m"
     elif turi == "tezlik":
-        v = random.choice([40, 50, 60, 70, 80, 90])
-        t = random.randint(2, 6)
+        v = random.choice([40, 50, 60, 70, 80])
+        t = random.randint(2, 5)
         togri = v * t
         savol = f"Avtomobil {v} km/soat tezlik bilan {t} soatda qancha masofani bosib o'tadi?"
         fan = f"Matematika (4-sinf)"
         birlik = " km"
     else:
-        x = random.randint(5, 30)
-        k = random.randint(2, 9)
-        c = random.randint(10, 50)
+        x = random.randint(5, 20)
+        k = random.randint(2, 5)
+        c = random.randint(10, 30)
         res = k * x + c
         togri = x
         savol = f"Tenglamani yeching: {k}x + {c} = {res}"
@@ -159,7 +145,7 @@ def generate_dynamic_school_math() -> dict:
     javob = f"{togri}{birlik}"
     variantlar = {javob}
     while len(variantlar) < 4:
-        xato = togri + random.choice([-12, -8, -4, -2, 2, 4, 6, 10, 14])
+        xato = togri + random.choice([-10, -6, -4, -2, 2, 4, 6, 10])
         if xato > 0:
             variantlar.add(f"{xato}{birlik}")
             
@@ -174,34 +160,34 @@ async def generate_ai_question(category: str, asked_list: list) -> dict | None:
     if not ai_model:
         return None
 
-    recent_asked = asked_list[-35:]  # Oxirgi 35 ta savolni takrorlamaslik uchun yuboramiz
+    recent_asked = asked_list[-35:]
 
     if category == "bolalar":
         sinf = random.randint(1, 11)
         fan = random.choice([
             "Matematika", "Ona tili", "Adabiyot", "O'zbekiston tarixi",
-            "Tabiiy fanlar", "Biologiya", "Geografiya", "Fizika", "Kimyo"
+            "Tabiiy fanlar", "Biologiya", "Geografiya", "Fizika"
         ])
         rule = (
             f"Sen O'zbekiston umumta'lim maktablarining {sinf}-sinf '{fan}' darsligi bo'yicha test tuzuvchisan. "
-            f"Savol FAQAT maktab darsligidagi aniq mavzular, qoidalar yoki misollardan tuzilsin."
+            f"Savol FAQAT maktab darsligidagi aniq mavzular va qoidalardan tuzilsin."
         )
     else:
         mavzu = random.choice([
             "O'zbekiston qonunchiligi va huquq", "Jahon tarixi", "Mantiqiy fikrlash",
-            "Iqtisodiyot va moliya", "Jahon geografiyasi", "Fan va texnologiya", "Jahon adabiyoti"
+            "Iqtisodiyot", "Jahon geografiyasi", "Fan va texnologiya"
         ])
         rule = (
             f"Sen kattalar uchun '{mavzu}' yo'nalishida intellektual viktorina savolini tuzuvchisan. "
-            f"Savol aniq faktga yoki mantiqqa asoslangan, qiziqarli bo'lsin."
+            f"Savol aniq faktga yoki mantiqqa asoslangan bo'lsin."
         )
 
     prompt = f"""
     {rule}
-    Quyidagi savollarni va ularga o'xshash savollarni ASLO takrorlama:
+    Quyidagi savollarni va ularga o'xshashlarni ASLO takrorlama:
     {recent_asked}
 
-    Faqat to'g'ri JSON formatda 1 ta yangi savol qaytar (boshqa hech qanday so'z qo'shma):
+    Faqat to'g'ri JSON formatda 1 ta yangi savol qaytar (boshqa hech qanday matn yozma):
     {{
         "fan": "Fan nomi (va sinfi) yoki mavzu",
         "savol": "Savol matni?",
@@ -226,14 +212,12 @@ async def generate_ai_question(category: str, asked_list: list) -> dict | None:
 async def get_fresh_question(user_id: int, category: str) -> dict:
     asked = get_user_asked_questions(user_id, category)
 
-    # 1. Avval AI orqali yangi savol olishga urinamiz
     for _ in range(2):
         ai_q = await generate_ai_question(category, list(asked))
         if ai_q and ai_q["savol"] not in asked:
             mark_question_used(user_id, category, ai_q["savol"])
             return ai_q
 
-    # 2. Agar AI kalit ulanmagan bo'lsa yoki xato bersa, statik bazadan tushmaganini olamiz
     available_static = [q for q in STATIC_QUESTIONS[category] if q["savol"] not in asked]
     if available_static:
         chosen = random.choice(available_static).copy()
@@ -242,7 +226,6 @@ async def get_fresh_question(user_id: int, category: str) -> dict:
         mark_question_used(user_id, category, chosen["savol"])
         return chosen
 
-    # 3. Bolalar bo'limida statik baza tugasa, dinamik maktab matematika generatori ishga tushadi
     if category == "bolalar":
         for _ in range(10):
             dyn_q = generate_dynamic_school_math()
@@ -250,7 +233,6 @@ async def get_fresh_question(user_id: int, category: str) -> dict:
                 mark_question_used(user_id, category, dyn_q["savol"])
                 return dyn_q
 
-    # 4. Agar barcha zaxira tugasa, foydalanuvchi tarixini yangilab, qaytadan aralashtiramiz
     conn = sqlite3.connect(DB_NAME)
     conn.execute("DELETE FROM asked_questions WHERE user_id = ? AND category = ?", (user_id, category))
     conn.commit()
@@ -265,10 +247,11 @@ async def get_fresh_question(user_id: int, category: str) -> dict:
 # ==========================================
 # 5. BOT KLAVIATURALARI VA HANDLERLARI
 # ==========================================
+if not BOT_TOKEN:
+    raise ValueError("BOT_TOKEN topilmadi! Railway Variables ga qo'shing.")
+
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
-
-# Foydalanuvchining joriy aktiv savolini saqlash
 active_questions = {}
 
 def main_menu_kb():
