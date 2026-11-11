@@ -23,7 +23,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 _ENCODED_DEFAULT = "OTIzNzM4ODY0ODpBQUhxQzFVSHFia01VRndFSVctdkU1OU9qOTkwWnAyQXI0dw=="
 DEFAULT_TOKEN = base64.b64decode(_ENCODED_DEFAULT).decode("utf-8")
 
-raw_env_token = (os.getenv("BOT_TOKEN") or os.getenv("TOKEN") or "").strip().strip('"').strip("'")
+raw_env_token = (os.getenv("BOT_TOKEN") or os.getenv("TOKEN") or "9237388648:AAEsc6y7eQXN9xBHCrdfjEZHALEykWdK8tU").strip().strip('"').strip("'")
 TOKEN = raw_env_token if raw_env_token else DEFAULT_TOKEN.strip()
 
 GEMINI_API_KEY = (os.getenv("GEMINI_API_KEY") or "").strip().strip('"').strip("'")
